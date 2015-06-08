@@ -4,6 +4,8 @@
     
     <node name="headlight_controller" pkg="jaguar_ros" type="headlight_controller.py" output="screen" />
 
+    <node name="imu_reporter" pkg="jaguar_ros" type="imu_reporter.py" output="screen" />
+
     <node name="joystick" pkg="joy" type="joy_node"/>
     
     <node pkg="jaguar_ros" type="joystick_controller.py" output="screen" name="joystick_controller"/>

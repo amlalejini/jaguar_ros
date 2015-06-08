@@ -7,6 +7,10 @@ motors:
 sensors:
     gps:
         topic: jaguar_gps
+    imu:
+        topic: jaguar_imu
+        ip: 192.168.0.71
+        port: 10001
 robot_control_topics:
     drive_control: cmd_vel
     front_flipper_control: front_flipper_cmds
