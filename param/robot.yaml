@@ -4,9 +4,11 @@ motors:
         angular_drive: 3.14 # rads/s
         front_flippers: 1
         rear_flippers: 1
+sensors:
+    gps:
+        topic: jaguar_gps
 robot_control_topics:
     drive_control: cmd_vel
     front_flipper_control: front_flipper_cmds
     rear_flipper_control: rear_flipper_cmds
     headlight_control: headlight_cmds
-    

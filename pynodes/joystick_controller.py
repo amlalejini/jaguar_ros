@@ -8,6 +8,9 @@ from sensor_msgs.msg import Joy
 from std_msgs.msg import Bool, Float32
 
 '''
+This module listens for joy messages and interprets those messages 
+ into the necessary commands for command of the Jaguar robot.
+
 MODULE TODO LIST:
  - velocity smoothing option? (see aries code)
  - all stop command from controller
