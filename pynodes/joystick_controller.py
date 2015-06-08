@@ -71,10 +71,10 @@ class Joystick_Controller(object):
         # TODO: write function to test the above values
 
         # Load control topics
-        self.drive_topic = rospy.get_param("control_inputs_topics/drive", DEFAULT_DRIVE_TOPIC)
-        self.front_flipper_topic = rospy.get_param("control_inputs_topics/front_flipper_control", DEFAULT_FRONT_FLIPPER_CONTROL_TOPIC)
-        self.rear_flipper_topic = rospy.get_param("control_inputs_topics/rear_flipper_control", DEFAULT_REAR_FLIPPER_CONTROL_TOPIC)
-        self.headlight_topic = rospy.get_param("control_inputs_topics/headlights", DEFAULT_HEADLIGHT_CONTROL_TOPIC)
+        self.drive_topic = rospy.get_param("robot_control_topics/drive_control", DEFAULT_DRIVE_TOPIC)
+        self.front_flipper_topic = rospy.get_param("robot_control_topics/front_flipper_control", DEFAULT_FRONT_FLIPPER_CONTROL_TOPIC)
+        self.rear_flipper_topic = rospy.get_param("robot_control_topics/rear_flipper_control", DEFAULT_REAR_FLIPPER_CONTROL_TOPIC)
+        self.headlight_topic = rospy.get_param("robot_control_topics/headlight_control", DEFAULT_HEADLIGHT_CONTROL_TOPIC)
         self.joy_topic = rospy.get_param("controller_settings/joystick_topic", DEFAULT_JOY_TOPIC)
 
         # Create necessary ROS publishers
