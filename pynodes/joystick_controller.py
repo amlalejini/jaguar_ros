@@ -48,6 +48,7 @@ class Joystick_Controller(object):
         self.current_joy = None
         self.joy_lock = Lock()
         self.headlight_toggle = False   # False: off, True: on
+        self.prev_joy = Joy()  # Stores previous joy message (useful for sequence related commands)
 
         # Load some controller parameters
         self.linear_axis = rospy.get_param("controller_settings/linear_axis", DEFAULT_LINEAR_AXIS) # Default value
@@ -212,12 +213,20 @@ class Joystick_Controller(object):
             ###############################
             # Get headlights command
             ###############################
-            toggle = True if joy.buttons[LOGITECH_BUTTONS[self.headlight_bttn]] == 1 else False
-            if toggle:
+            # toggle headlights on release if last message was a press
+            toggle = False if joy.buttons[LOGITECH_BUTTONS[self.headlight_bttn]] == 1 else True
+            try:
+                # this code will fail on first execution (when the prev joy message is empty)
+                prev_input = True if self.prev_joy.buttons[LOGITECH_BUTTONS[self.headlight_bttn]] == 1 else False
+            except:
+                prev_input = False
+
+            if toggle and prev_input:
                 self.headlight_toggle = not self.headlight_toggle
                 # publish headlight command (true: on, false: off)
                 self.headlight_cmds_pub.publish(Bool(self.headlight_toggle))
 
+            self.prev_joy = joy
             # keep rate
             rate.sleep()
 
