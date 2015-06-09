@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
-import rospy, socket, atexit, re, time
+import rospy, socket, atexit, re
+from tf.transformations import quaternion_from_euler
 from sensor_msgs.msg import Imu
+from std_msgs.msg import Header
+from geometry_msgs.msg import Vector3, Quaternion 
 
 '''
 MODULE TODO LIST:
  - change defaults to online docs
  - make robust
+ - convert IMU data to std msg, publish
 '''
 
 #########################################
@@ -27,12 +31,34 @@ class IMU_Reporter(object):
         GPS Reporter contructor.
         '''
         rospy.init_node("imu_reporter")
+        # magnetometer updates at a different rate than other sensors on IMU, need to keep around most recent values
+        self.current_mag = [-1, -1, -1]
+
+        # Register an exit handler.
         atexit.register(self._exit_handler)
+        
         # Setup networking with imu
+        # Load imu ip and port from parameter server.
         self.imu_ip = rospy.get_param("sensors/imu/ip", DEFAULT_IMU_IP)
         self.imu_port = rospy.get_param("sensors/imu/port", DEFAULT_IMU_PORT)
+        # Make sure port is okay
+        try:
+            int(self.imu_port)
+        except:
+            rospy.logerr("Bad IMU port given. Resetting to default.")
+            self.imu_port = DEFAULT_IMU_PORT
+        # Create IMU comms socket (TCP communication protocol)
         self.imu_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.imu_sock.connect((self.imu_ip, self.imu_port))
+        # Attempt to connect
+        rospy.loginfo("Trying to connect to IMU at " + str(self.imu_ip) + " on port " + str(self.imu_port))
+        while not rospy.is_shutdown():
+            try:
+                self.imu_sock.connect((self.imu_ip, self.imu_port))
+            except:
+                rospy.logerr("Failed to connect to IMU.  Will continue trying.")
+            else:
+                break
+
         # Load topic name(s)
         self.imu_topic = rospy.get_param("sensors/imu/topic", DEFAULT_IMU_TOPIC)
         # Create necessary ROS publishers
@@ -42,28 +68,65 @@ class IMU_Reporter(object):
         '''
         Main loop run function.
         '''
-        rate = rospy.Rate(75)
-        recv_thing = time.time()
-        while not rospy.is_shutdown():
+        rate = rospy.Rate(75)  # The magnetometer data gets updated at ~50hz, other sensors on IMU update much faster.
 
+        while not rospy.is_shutdown():
+            # Grab a chunk of data
             data = self.imu_sock.recv(BUFFER)
-            #print("==========")
+
             # Use regular expressions to extract complete message
             # message format: $val,val,val,val,val,val,val,val,val,val#\n
-            
-            m = re.search(r"\$-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*#", data)
-            if m != None:
-                imu_data = m.group(0)
-                imu_data = imu_data[1:-1].split(",") 
-                # seq, accelx, accely, accelz, gyroY, gyroZ, gyroX, magnetonX, magnetonY, magnetonZ  
-                # only update mag data if magz is not 0       
-                if imu_data[-1] != "0": 
-                    print("====")
-                    print(imu_data)
-                    print("TIME: " + str(time.time() - recv_thing))
-                    recv_thing = time.time()
-            else:
-                print("NO MATCH")
+            hit = re.search(r"\$-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*#", data)
+            if hit != None:
+                imu_data = hit.group(0)
+                try:
+                    imu_data = imu_data[1:-1].split(",")
+                    #Format (from drrobot docs): seq, accelx, accely, accelz, gyroY, gyroZ, gyroX, magnetonX, magnetonY, magnetonZ
+                    seq = int(imu_data[0])
+
+                    accelx = float(imu_data[1])
+                    accely = float(imu_data[2])
+                    accelz = float(imu_data[3])
+
+                    gyroy = float(imu_data[4])
+                    gyroz = float(imu_data[5])
+                    gyrox = float(imu_data[6])
+
+                    magnetonx = float(imu_data[7])
+                    magnetony = float(imu_data[8])
+                    magnetonz = float(imu_data[9])
+                except:
+                    # bad data in match, pass
+                    pass
+                else:
+                    # only update mag if it is not 0
+
+                    ############################
+                    # TODO: fix, just keep around the an instance variable that we continuously update
+                    # if mag not 0, don't update that part
+                    # if we just received our first magnetometer reading
+                    if magnetonz == 0:
+                        magnetonx = self.current_mag[0]
+                        magnetony = self.current_mag[1]
+                        magnetonz = self.current_mag[2]
+                    else:
+                        self.current_mag = [magnetonx, magnetony, magnetonz]
+
+
+                    # Build message 
+                    # can use current_mag reading here
+                    msg = Imu()
+                    msg.header = Header(stamp = rospy.Time.now())
+                    linear_accel = Vector3(accelx, accely, accelz)
+                    angular_accel = Vector3()
+                    orient = Quaternion()
+
+                    msg.orientation = orient 
+                    msg.angular_acceleration = angular_accel
+                    msg.linear_acceleration = linear_accel 
+                    # Publish message
+                    self.imu_pub.publish(msg)
+
             # publish
             rate.sleep()
             
@@ -71,7 +134,12 @@ class IMU_Reporter(object):
         '''
         This function runs on exit.
         '''
-        self.imu_sock.close()
+        try:
+            self.imu_sock.close()
+        except:
+            pass
+        finally:
+            exit()
 
 if __name__ == "__main__":
     reporter = IMU_Reporter()
