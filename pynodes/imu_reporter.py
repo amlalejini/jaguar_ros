@@ -9,9 +9,10 @@ from geometry_msgs.msg import Vector3, Quaternion
 '''
 MODULE TODO LIST:
  - change defaults to online docs
- - make robust
  - have Ryan look at calculating heading
 '''
+
+__authors__ = ["Alex Lalejini", "Ryan Smith"]
 
 #########################################
 # Constants
@@ -41,12 +42,6 @@ class IMU_Reporter(object):
         # Load imu ip and port from parameter server.
         self.imu_ip = rospy.get_param("sensors/imu/ip", DEFAULT_IMU_IP)
         self.imu_port = rospy.get_param("sensors/imu/port", DEFAULT_IMU_PORT)
-        # Make sure port is okay
-        try:
-            int(self.imu_port)
-        except:
-            rospy.logerr("Bad IMU port given. Resetting to default.")
-            self.imu_port = DEFAULT_IMU_PORT
         # Create IMU comms socket (TCP communication protocol)
         self.imu_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Attempt to connect
@@ -65,65 +60,72 @@ class IMU_Reporter(object):
         # Create necessary ROS publishers
         self.imu_pub = rospy.Publisher(self.imu_topic, Imu)#, queue_size = 10)
 
+    def parse_imu(self, data):
+        '''
+        Given data from jaguar imu, parse and return a standard IMU message.
+        Return None when given bad data, or no complete message was found in data.
+        '''
+         # Use regular expressions to extract complete message
+        # message format: $val,val,val,val,val,val,val,val,val,val#\n
+        hit = re.search(r"\$-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*#", data)
+        if not hit:
+            # if there are no hits, return None
+            return None
+        else:
+            imu_data = hit.group(0)
+            try:
+                # Try to format the data
+                imu_data = imu_data[1:-1].split(",")
+                #Format (from drrobot docs): seq, accelx, accely, accelz, gyroY, gyroZ, gyroX, magnetonX, magnetonY, magnetonZ
+                seq = int(imu_data[0])
+
+                accelx = float(imu_data[1])
+                accely = float(imu_data[2])
+                accelz = float(imu_data[3])
+
+                gyroy = float(imu_data[4])
+                gyroz = float(imu_data[5])
+                gyrox = float(imu_data[6])
+
+                magnetonx = float(imu_data[7])
+                magnetony = float(imu_data[8])
+                magnetonz = float(imu_data[9])
+            except:
+                # bad data in match, pass
+                return None
+            else:
+                # data formatted fine, build message and publish
+
+                # if we didn't get a magnetometer update, set to current reading
+                if magnetonz == 0:
+                    magnetonx = self.current_mag[0]
+                    magnetony = self.current_mag[1]
+                    magnetonz = self.current_mag[2]
+                # otherwise, update current magnetometer
+                else:
+                    self.current_mag = [magnetonx, magnetony, magnetonz]
+
+                # Build message 
+                # can use current_mag reading here
+                msg = Imu()
+                msg.header = Header(stamp = rospy.Time.now())
+                msg.linear_acceleration = Vector3(accelx, accely, accelz)
+                msg.angular_velocity = Vector3(gyrox, gyroy, gyroz)
+                msg.orientation = Quaternion()
+                return msg
+
     def run(self):
         '''
         Main loop run function.
         '''
         rate = rospy.Rate(75)  # The magnetometer data gets updated at ~50hz, other sensors on IMU update much faster.
-
         while not rospy.is_shutdown():
             # Grab a chunk of data
             data = self.imu_sock.recv(BUFFER)
+            # Publish message
+            imu_msg = self.parse_imu(data)
+            if imu_msg != None: self.imu_pub.publish(imu_msg)
 
-            # Use regular expressions to extract complete message
-            # message format: $val,val,val,val,val,val,val,val,val,val#\n
-            hit = re.search(r"\$-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*#", data)
-            if hit != None:
-                imu_data = hit.group(0)
-                try:
-                    # Try to format the data
-                    imu_data = imu_data[1:-1].split(",")
-                    #Format (from drrobot docs): seq, accelx, accely, accelz, gyroY, gyroZ, gyroX, magnetonX, magnetonY, magnetonZ
-                    seq = int(imu_data[0])
-
-                    accelx = float(imu_data[1])
-                    accely = float(imu_data[2])
-                    accelz = float(imu_data[3])
-
-                    gyroy = float(imu_data[4])
-                    gyroz = float(imu_data[5])
-                    gyrox = float(imu_data[6])
-
-                    magnetonx = float(imu_data[7])
-                    magnetony = float(imu_data[8])
-                    magnetonz = float(imu_data[9])
-                except:
-                    # bad data in match, pass
-                    pass
-                else:
-                    # data formatted fine, build message and publish
-
-                    # if we didn't get a magnetometer update, set to current reading
-                    if magnetonz == 0:
-                        magnetonx = self.current_mag[0]
-                        magnetony = self.current_mag[1]
-                        magnetonz = self.current_mag[2]
-                    # otherwise, update current magnetometer
-                    else:
-                        self.current_mag = [magnetonx, magnetony, magnetonz]
-
-
-                    # Build message 
-                    # can use current_mag reading here
-                    msg = Imu()
-                    msg.header = Header(stamp = rospy.Time.now())
-                    msg.linear_acceleration = Vector3(accelx, accely, accelz)
-                    msg.angular_velocity = Vector3(gyrox, gyroy, gyroz)
-                    msg.orientation = Quaternion()
-                    # Publish message
-                    self.imu_pub.publish(msg)
-
-            # publish
             rate.sleep()
             
     def _exit_handler(self):
@@ -138,5 +140,9 @@ class IMU_Reporter(object):
             exit()
 
 if __name__ == "__main__":
-    reporter = IMU_Reporter()
-    reporter.run()
+    try:
+        reporter = IMU_Reporter()
+    except:
+        rospy.logerr("Failed to start IMU interface.")
+    else:
+        reporter.run()

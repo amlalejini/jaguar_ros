@@ -17,6 +17,8 @@ MODULE TODO LIST:
  - Controller parameter (logitech, xbox, etc)
 '''
 
+__authors__ = ["Alex Lalejini"]
+
 #########################################
 # Constants
 #########################################
