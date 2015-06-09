@@ -108,7 +108,7 @@ class IMU_Reporter(object):
                 # Build message 
                 # can use current_mag reading here
                 msg = Imu()
-                msg.header = Header(stamp = rospy.Time.now())
+                msg.header = Header(stamp = rospy.Time.now(), frame_id = "imu")
                 msg.linear_acceleration = Vector3(accelx, accely, accelz)
                 msg.angular_velocity = Vector3(gyrox, gyroy, gyroz)
                 msg.orientation = Quaternion()
@@ -124,7 +124,7 @@ class IMU_Reporter(object):
             data = self.imu_sock.recv(BUFFER)
             # Publish message
             imu_msg = self.parse_imu(data)
-            if imu_msg != None: self.imu_pub.publish(imu_msg)
+            if imu_msg: self.imu_pub.publish(imu_msg)
 
             rate.sleep()
             

@@ -33,9 +33,11 @@ class GPS_Reporter(object):
         '''
         # Register as ROS node.
         rospy.init_node("gps_reporter")
+
+        self.current_est_heading = None
+
         # Register an exit handler.
         atexit.register(self._exit_handler)
-
         # Setup networking
         # Load GPS ip and port from parameter server.
         self.imu_ip = rospy.get_param("sensors/gps/ip", DEFAULT_GPS_IP)
@@ -67,13 +69,42 @@ class GPS_Reporter(object):
         gpgga_hit = re.search('^\$(GPGGA.+?)\r\n', data)
         gprmc_hit = re.search('^\$(GPRMC.+?)\r\n', data)
         if gpgga_hit and gprmc_hit:
-            gpgga_str = gpgga_hit.group(0)
-            gprmc_str = gprmc_hit.group(0)
+            gpgga = gpgga_hit.group(0).split(",")
+            gprmc = gprmc_hit.group(0).split(",")
+            nav_msg = NavSatFix()
+            # Set header information
+            time = gpgga[1]
+            hrs = float(time[0:1])
+            mins = float(time[2:3])
+            secs = float(time[4:5])
+            nav_msg.header.stamp = rospy.Time.from_sec(hrs * 3600 + mins * 60 + secs)
+            nav_msg.header.frame_id = "gps"
+            # Set GPS Status
+            status = NavSatStatus()
+            status.status = -1 if int(gpgga[6]) == 0 else 0
+            nav_msg.status = status
+            # Set longitude and latitude
+            nav_msg.latitude = -1 * float(gpgga[2]) if gpgga[3] == "S" else float(gpgga[2])
+            nav_msg.longitude = -1 * float(gpgga[4]) if gpgga[5] == "W" else float(gpgga[4])
+            # Set covariance type to unknown
+            nav_msg.position_covariance_type = 0
+            # Get estimated heading (not part of standard ROS navsatfix message)
+            try:
+                heading = float(gprmc[8])
+            except:
+                heading = float("NaN")
+            else:
+                while heading < -180.0:
+                    heading += 360.0
+                while heading > 180.0:
+                    heading -= 360.0
+            finally:
+                self.current_est_heading = heading
 
+            return nav_msg
         else:
             return None
 
-        pass
 
     def run(self):
         '''
@@ -84,15 +115,24 @@ class GPS_Reporter(object):
             # Grab a chunk of data
             data = self.gps_sock.recv(BUFFER)
             gps_msg = self.parse_gps(data)
-            self.gps_pub.publish(gps_msg)
+            if gps_msg: self.gps_pub.publish(gps_msg)
             rate.sleep()
 
     def _exit_handler(self):
         '''
         This function runs on module exit.
         '''
+        try:
+            self.gps_sock.close()
+        except:
+            pass
         exit()
 
 if __name__ == "__main__":
-    pass
+    try:
+        reporter = GPS_Reporter()
+    except:
+        rospy.logerr("Failed to start GPS interface.")
+    else:
+        reporter.run()
 
