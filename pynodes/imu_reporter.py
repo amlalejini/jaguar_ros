@@ -54,6 +54,7 @@ class IMU_Reporter(object):
                 rospy.sleep(3)
             else:
                 rospy.loginfo("Successfully connected to IMU.")
+                break
 
         # Load topic name(s)
         self.imu_topic = rospy.get_param("sensors/imu/topic", DEFAULT_IMU_TOPIC)

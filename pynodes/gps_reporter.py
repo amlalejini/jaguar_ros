@@ -20,7 +20,7 @@ __authors__ = ["Alex Lalejini", "Ryan Smith", "Dexter Duckworth"]
 # Networking
 DEFAULT_GPS_IP = "192.168.0.71"
 DEFAULT_GPS_PORT = 10002
-BUFFER = 128
+BUFFER = 2056
 # Topic(s)
 DEFAULT_GPS_TOPIC = "jaguar_gps"
 #########################################
@@ -35,13 +35,15 @@ class GPS_Reporter(object):
         rospy.init_node("gps_reporter")
 
         self.current_est_heading = None
+        self.current_gprmc = None
+        self.current_gpgga = None
 
         # Register an exit handler.
         atexit.register(self._exit_handler)
         # Setup networking
         # Load GPS ip and port from parameter server.
-        self.imu_ip = rospy.get_param("sensors/gps/ip", DEFAULT_GPS_IP)
-        self.imu_port = rospy.get_param("sensors/gps/port", DEFAULT_GPS_PORT)
+        self.gps_ip = rospy.get_param("sensors/gps/ip", DEFAULT_GPS_IP)
+        self.gps_port = rospy.get_param("sensors/gps/port", DEFAULT_GPS_PORT)
         # Create GPS comms socket (TCP communication protocol)
         self.gps_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Attempt to connect
@@ -54,13 +56,14 @@ class GPS_Reporter(object):
                 rospy.sleep(3)
             else:
                 rospy.loginfo("Successfully connected to GPS.")
+                break
 
         # Load topic name(s)
         self.gps_topic = rospy.get_param("sensors/gps/topic", DEFAULT_GPS_TOPIC)
         # Create necessary ROS publishers
-        self.gps_pub = rospy.Publisher(self.gps_topic, NavSatFix, queue_size = 10)
+        self.gps_pub = rospy.Publisher(self.gps_topic, NavSatFix)#, queue_size = 10)
 
-    def parse_gps(data):
+    def parse_gps(self, data):
         '''
         Given raw data from Jaguar GPS socket, parse and return NavSatFix message.
         If bad/incomplete data, return None
@@ -68,9 +71,17 @@ class GPS_Reporter(object):
         # use regex to parse
         gpgga_hit = re.search('^\$(GPGGA.+?)\r\n', data)
         gprmc_hit = re.search('^\$(GPRMC.+?)\r\n', data)
-        if gpgga_hit and gprmc_hit:
-            gpgga = gpgga_hit.group(0).split(",")
-            gprmc = gprmc_hit.group(0).split(",")
+        print("=====")
+        print(data)
+        if gpgga_hit:
+            self.current_gpgga = gpgga_hit.group(0)
+        if gprmc_hit:
+            self.current_gprmc = gprmc_hit.group(0)
+        if self.current_gpgga and self.current_gprmc:
+            gpgga = self.current_gpgga.split(",")
+            gprmc = self.current_gprmc.split(",")
+            self.current_gpgga = None
+            self.current_gprmc = None
             nav_msg = NavSatFix()
             # Set header information
             time = gpgga[1]
@@ -129,6 +140,9 @@ class GPS_Reporter(object):
         exit()
 
 if __name__ == "__main__":
+    reporter = GPS_Reporter()
+    reporter.run()
+    exit()
     try:
         reporter = GPS_Reporter()
     except:
