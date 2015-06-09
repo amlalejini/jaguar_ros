@@ -10,7 +10,7 @@ from geometry_msgs.msg import Vector3, Quaternion
 MODULE TODO LIST:
  - change defaults to online docs
  - make robust
- - convert IMU data to std msg, publish
+ - have Ryan look at calculating heading
 '''
 
 #########################################
@@ -32,7 +32,7 @@ class IMU_Reporter(object):
         '''
         rospy.init_node("imu_reporter")
         # magnetometer updates at a different rate than other sensors on IMU, need to keep around most recent values
-        self.current_mag = [-1, -1, -1]
+        self.current_mag = [0, 0, 0]
 
         # Register an exit handler.
         atexit.register(self._exit_handler)
@@ -56,8 +56,9 @@ class IMU_Reporter(object):
                 self.imu_sock.connect((self.imu_ip, self.imu_port))
             except:
                 rospy.logerr("Failed to connect to IMU.  Will continue trying.")
+                rospy.sleep(3)
             else:
-                break
+                rospy.loginfo("Successfully connected to IMU.")
 
         # Load topic name(s)
         self.imu_topic = rospy.get_param("sensors/imu/topic", DEFAULT_IMU_TOPIC)
@@ -80,6 +81,7 @@ class IMU_Reporter(object):
             if hit != None:
                 imu_data = hit.group(0)
                 try:
+                    # Try to format the data
                     imu_data = imu_data[1:-1].split(",")
                     #Format (from drrobot docs): seq, accelx, accely, accelz, gyroY, gyroZ, gyroX, magnetonX, magnetonY, magnetonZ
                     seq = int(imu_data[0])
@@ -99,16 +101,14 @@ class IMU_Reporter(object):
                     # bad data in match, pass
                     pass
                 else:
-                    # only update mag if it is not 0
+                    # data formatted fine, build message and publish
 
-                    ############################
-                    # TODO: fix, just keep around the an instance variable that we continuously update
-                    # if mag not 0, don't update that part
-                    # if we just received our first magnetometer reading
+                    # if we didn't get a magnetometer update, set to current reading
                     if magnetonz == 0:
                         magnetonx = self.current_mag[0]
                         magnetony = self.current_mag[1]
                         magnetonz = self.current_mag[2]
+                    # otherwise, update current magnetometer
                     else:
                         self.current_mag = [magnetonx, magnetony, magnetonz]
 
@@ -117,13 +117,9 @@ class IMU_Reporter(object):
                     # can use current_mag reading here
                     msg = Imu()
                     msg.header = Header(stamp = rospy.Time.now())
-                    linear_accel = Vector3(accelx, accely, accelz)
-                    angular_accel = Vector3()
-                    orient = Quaternion()
-
-                    msg.orientation = orient 
-                    msg.angular_acceleration = angular_accel
-                    msg.linear_acceleration = linear_accel 
+                    msg.linear_acceleration = Vector3(accelx, accely, accelz)
+                    msg.angular_velocity = Vector3(gyrox, gyroy, gyroz)
+                    msg.orientation = Quaternion()
                     # Publish message
                     self.imu_pub.publish(msg)
 
