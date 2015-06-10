@@ -73,6 +73,7 @@ class GPS_Reporter(object):
         gprmc_hit = re.search('^\$(GPRMC.+?)\r\n', data)
         print("=====")
         print(data)
+        # TODO: Might not even want to use GPRMC?
         if gpgga_hit:
             self.current_gpgga = gpgga_hit.group(0)
         if gprmc_hit:
@@ -83,7 +84,7 @@ class GPS_Reporter(object):
             self.current_gpgga = None
             self.current_gprmc = None
             nav_msg = NavSatFix()
-            # Set header information
+            # Set header information 
             time = gpgga[1]
             hrs = float(time[0:1])
             mins = float(time[2:3])
@@ -94,9 +95,13 @@ class GPS_Reporter(object):
             status = NavSatStatus()
             status.status = -1 if int(gpgga[6]) == 0 else 0
             nav_msg.status = status
-            # Set longitude and latitude
-            nav_msg.latitude = -1 * float(gpgga[2]) if gpgga[3] == "S" else float(gpgga[2])
-            nav_msg.longitude = -1 * float(gpgga[4]) if gpgga[5] == "W" else float(gpgga[4])
+            # Set longitude and latitude http://stackoverflow.com/questions/28174127/converting-strange-lat-lng-format-to-decimal
+            lat_str = gppga[2]
+            lon_str = gppga[4]
+            lat_degs = float(lat_str[:2]) + (float(lat_str[2:]) / 60.0)
+            lon_degs = float(lon_str[:3]) + (float(lon_str[3:]) / 60.0)
+            nav_msg.latitude = -1 * lat_degs if gpgga[3] == "S" else lat_degs
+            nav_msg.longitude = -1 * lon_degs if gpgga[5] == "W" else lon_degs
             # Set covariance type to unknown
             nav_msg.position_covariance_type = 0
             # Get estimated heading (not part of standard ROS navsatfix message)
