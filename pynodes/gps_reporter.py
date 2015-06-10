@@ -95,13 +95,18 @@ class GPS_Reporter(object):
             status = NavSatStatus()
             status.status = -1 if int(gpgga[6]) == 0 else 0
             nav_msg.status = status
-            # Set longitude and latitude http://stackoverflow.com/questions/28174127/converting-strange-lat-lng-format-to-decimal
-            lat_str = gppga[2]
-            lon_str = gppga[4]
+            # Set longitude and latitude
+            lat_str = gpgga[2]
+            lon_str = gpgga[4]
             lat_degs = float(lat_str[:2]) + (float(lat_str[2:]) / 60.0)
             lon_degs = float(lon_str[:3]) + (float(lon_str[3:]) / 60.0)
             nav_msg.latitude = -1 * lat_degs if gpgga[3] == "S" else lat_degs
             nav_msg.longitude = -1 * lon_degs if gpgga[5] == "W" else lon_degs
+            # Set altitude (Positive is above the WGS 84 ellipsoid)
+            try:
+                nav_msg.altitude = float(gpgga[9])
+            except:
+                nav_msg.altitude = float("NaN")
             # Set covariance type to unknown
             nav_msg.position_covariance_type = 0
             # Get estimated heading (not part of standard ROS navsatfix message)

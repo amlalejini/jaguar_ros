@@ -34,6 +34,10 @@ class IMU_Reporter(object):
         rospy.init_node("imu_reporter")
         # magnetometer updates at a different rate than other sensors on IMU, need to keep around most recent values
         self.current_mag = [0, 0, 0]
+        
+        # self.mag_fp = open("mag_cal.txt", "a")
+        # self.gyro_fp = open("gyro_cal_up.txt", "a")
+        # self.accel_fp = open("accel_cal_up.txt", "a")
 
         # Register an exit handler.
         atexit.register(self._exit_handler)
@@ -105,9 +109,13 @@ class IMU_Reporter(object):
                 # otherwise, update current magnetometer
                 else:
                     self.current_mag = [magnetonx, magnetony, magnetonz]
+                    #self.mag_fp.write(str(magnetonx) + "," + str(magnetony) + "," + str(magnetonz) + "\n")
 
                 # Build message 
                 # can use current_mag reading here
+                # TODO: RYAN FILL OUT ROS MESSAGE FROM RAW IMU DATA
+                # self.accel_fp.write("%s,%s,%s\n" % (str(accelx), str(accely), str(accelz)))
+                # self.gyro_fp.write("%s,%s,%s\n" % (str(gyrox), str(gyroy), str(gyroz)))
                 msg = Imu()
                 msg.header = Header(stamp = rospy.Time.now(), frame_id = "imu")
                 msg.linear_acceleration = Vector3(accelx, accely, accelz)
@@ -133,12 +141,19 @@ class IMU_Reporter(object):
         '''
         This function runs on exit.
         '''
+        # try:
+        #     self.mag_fp.close()
+        #     self.accel_fp.close()
+        #     self.gyro_fp.close()
+        # except:
+        #     pass
         try:
             self.imu_sock.close()
         except:
             pass
         finally:
             exit()
+            
 
 if __name__ == "__main__":
     try:
