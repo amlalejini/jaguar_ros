@@ -73,7 +73,7 @@ class GPS_Reporter(object):
         gprmc_hit = re.search('^\$(GPRMC.+?)\r\n', data)
         print("=====")
         print(data)
-        # TODO: Might not even want to use GPRMC?
+        # TODO: Might not even want to use GPRMC? get altitude
         if gpgga_hit:
             self.current_gpgga = gpgga_hit.group(0)
         if gprmc_hit:
