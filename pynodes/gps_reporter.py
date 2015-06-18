@@ -34,9 +34,9 @@ class GPS_Reporter(object):
         # Register as ROS node.
         rospy.init_node("gps_reporter")
 
+        # Below is not part of standard NavSatFix message
+        # We're just keeping track of it for potential use later
         self.current_est_heading = None
-        self.current_gprmc = None
-        self.current_gpgga = None
 
         # Register an exit handler.
         atexit.register(self._exit_handler)
@@ -73,16 +73,25 @@ class GPS_Reporter(object):
         gprmc_hit = re.search('^\$(GPRMC.+?)\r\n', data)
         print("=====")
         print(data)
-        # TODO: Might not even want to use GPRMC? get altitude
-        if gpgga_hit:
-            self.current_gpgga = gpgga_hit.group(0)
+
         if gprmc_hit:
-            self.current_gprmc = gprmc_hit.group(0)
-        if self.current_gpgga and self.current_gprmc:
-            gpgga = self.current_gpgga.split(",")
-            gprmc = self.current_gprmc.split(",")
-            self.current_gpgga = None
-            self.current_gprmc = None
+            # Get estimated heading (not part of standard ROS navsatfix message)
+            gprmc = gprmc_hit.group(0).split(",")
+            try:
+                heading = float(gprmc[8])
+            except:
+                heading = float("NaN")
+            else:
+                while heading < -180.0:
+                    heading += 360.0
+                while heading > 180.0:
+                    heading -= 360.0
+            finally:
+                self.current_est_heading = heading
+        
+        if gpgga_hit:
+            gpgga = gpgga_hit.group(0).split(",")
+            
             nav_msg = NavSatFix()
             # Set header information 
             time = gpgga[1]
@@ -109,18 +118,6 @@ class GPS_Reporter(object):
                 nav_msg.altitude = float("NaN")
             # Set covariance type to unknown
             nav_msg.position_covariance_type = 0
-            # Get estimated heading (not part of standard ROS navsatfix message)
-            try:
-                heading = float(gprmc[8])
-            except:
-                heading = float("NaN")
-            else:
-                while heading < -180.0:
-                    heading += 360.0
-                while heading > 180.0:
-                    heading -= 360.0
-            finally:
-                self.current_est_heading = heading
 
             return nav_msg
         else:
@@ -150,9 +147,6 @@ class GPS_Reporter(object):
         exit()
 
 if __name__ == "__main__":
-    reporter = GPS_Reporter()
-    reporter.run()
-    exit()
     try:
         reporter = GPS_Reporter()
     except:
