@@ -1,6 +1,8 @@
 player:                         # General parameters for motorolla eval board interface
-    ip: 192.168.0.70
+    ip: 192.168.0.70            
     port: 10001
+    serial_port: /dev/ttyS0     # Serial port name if comms are taking place over Serial.  Not used if using Network comms.
+    comm_method: network        # Either network or serial
 motors:
     drrobot_max_speed: 1.0      # Max speed for drrobot's pwm scaling garbage. 
     drrobot_min_speed: 0.1      # Min speed for drrobot's pwm scaling garbage.

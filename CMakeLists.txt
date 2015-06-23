@@ -80,31 +80,36 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES jaguar_ros
-#  CATKIN_DEPENDS roscpp rospy std_msgs
-#  DEPENDS system_lib
+  INCLUDE_DIRS include
+  LIBRARIES jaguar_ros
+  CATKIN_DEPENDS roscpp rospy std_msgs
+  DEPENDS system_lib
 )
 
 ###########
 ## Build ##
 ###########
 
+#set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+#set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  include
 )
 
 ## Declare a cpp library
-# add_library(jaguar_ros
-#   src/${PROJECT_NAME}/jaguar_ros.cpp
-# )
+add_library(jaguar_ros
+   src/DrRobotMotionSensorDriver.cpp
+)
+
 
 ## Declare a cpp executable
 # add_executable(jaguar_ros_node src/jaguar_ros_node.cpp)
-add_executable(jaguar_player src/jaguar_player.cpp)
+add_executable(jaguar_player src/jaguar_player.cpp src/DrRobotMotionSensorDriver.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -116,6 +121,7 @@ add_dependencies(jaguar_player jaguar_ros_generate_messages_cpp)
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(jaguar_player ${catkin_LIBRARIES})
+
 
 #############
 ## Install ##
