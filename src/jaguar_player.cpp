@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string>
 
-#include <DrRobotMotionSensorDriver.hpp>
+#include "DrRobotMotionSensorDriver.hpp"
 
 using std::string;
 
@@ -14,7 +14,7 @@ using namespace DrRobot_MotionSensorDriver;
 ////////////////////////////////////////////////////////
 // Networking
 string DEFAULT_JAGUAR_IP = "192.168.0.70";
-string DEFAULT_JAGUAR_PORT = 10001;
+int DEFAULT_JAGUAR_PORT = 10001;
 // Topics
 string DEFAULT_DRIVE_VEL_TOPIC = "cmd_vel";
 // Motor Constants
@@ -70,7 +70,7 @@ JaguarPlayer::JaguarPlayer() {
 
     // Load Networking information
     node_handle.param<string>("player/ip", jaguar_ip, DEFAULT_JAGUAR_IP);
-    node_handle.param<string>("player/port", jaguar_port, DEFAULT_JAGUAR_PORT);
+    node_handle.param<int>("player/port", jaguar_port, DEFAULT_JAGUAR_PORT);
 
     // Load topic names
     node_handle.param<string>("robot_control_topics/drive_control", drive_vel_topic, DEFAULT_DRIVE_VEL_TOPIC);
