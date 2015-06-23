@@ -104,15 +104,18 @@ include_directories(
 
 ## Declare a cpp executable
 # add_executable(jaguar_ros_node src/jaguar_ros_node.cpp)
+add_executable(jaguar_player src/jaguar_player.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(jaguar_ros_node jaguar_ros_generate_messages_cpp)
+add_dependencies(jaguar_player jaguar_ros_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(jaguar_ros_node
 #   ${catkin_LIBRARIES}
 # )
+target_link_libraries(jaguar_player ${catkin_LIBRARIES})
 
 #############
 ## Install ##
