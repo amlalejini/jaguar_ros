@@ -524,12 +524,14 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDriv
     debug_ouput(temp);
     // Clears the bad data, just in case
     bzero(&_addr, sizeof(_addr));
+    // Revert to previous valid ip
+    inet_pton(_addr.sin_family,_robotConfig->robotIP, &_addr.sin_addr
     return -2;
     }
   // Checks if the port number is valid
-  if (portNum <= 0)
+  if (driverConfig->portNum <= 0)
   {
-    sprintf(temp, "DrRobot Motion/Sensor Driver Error Message: invalid IP address: %i\n", driverConfig->portNum);
+    sprintf(temp, "DrRobot Motion/Sensor Driver Error Message: invalid Port number: %i\n", driverConfig->portNum);
     debug_ouput(temp);
     return -1;
     }
@@ -540,7 +542,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDriv
   // Ensures that the portNum is in big Endian notation to comply with network protocol
   _addr.sin_port = htons(_robotConfig->portNum);
   
-  return;
+  return 0;
 }
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readMotorSensorData(MotorSensorData* motorSensorData)
@@ -752,6 +754,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(Ctrl
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6, const int time)
 {
+  // TODO: Check board docs and check if it's even used...
   unsigned char msg[255];
   short tempCmd = 0;
   short tempTime = time;
@@ -804,6 +807,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6)
 {
+  // TODO: Check board docs and check if it's even used...
   unsigned char msg[255];
   short tempCmd = 0;
   msg[0] = COM_STX0;
@@ -849,6 +853,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(const int channel, const int cmd, const int time)
 {
+  // TODO: Check board docs and check if it's even used...
   unsigned char msg[255];
   short tempTime = (short)( time & 0xffff);
   if ((channel < 0) || (channel > 5))
@@ -872,6 +877,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(const int channel, const int cmd)
 {
+  // TODO: Check board docs and check if it's even used...
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
@@ -891,6 +897,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableMotorCmd(const int channel)
 {
+    // TODO: Check board docs and check if it's even used...
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
@@ -909,6 +916,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableMotorCmd(const
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableServoCmd(const int channel)
 {
+  // TODO: Check board docs and check if it's even used...
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
@@ -929,6 +937,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableServoCmd(const
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlPID(const int channel, const int kp, const int kd, const int ki)
 {
+  // TODO: Check board documentation to verify that this works
   unsigned char msg[255];
   if ( (channel < 0) || (channel > 5) )
     return -1;
@@ -953,6 +962,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlP
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlPID(const int channel, const int kp, const int kd, const int ki)
 {
+  // TODO: Check board documentation to verify that this works
   unsigned char msg[255];
   if ( (channel < 0) || (channel > 5) )
   return -1;
@@ -977,6 +987,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlP
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorFricCompensation(const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6)
 {
+  // TODO: Check board documentation to verify that this works
   unsigned char msg[255];
 
   msg[0] = COM_STX0;

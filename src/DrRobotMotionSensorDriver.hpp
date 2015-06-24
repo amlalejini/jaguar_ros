@@ -169,7 +169,7 @@ namespace DrRobot_MotionSensorDriver
     bool portOpen();
 
     /*! @brief
-     *  This function is used for closing the communication
+     *  This function is used for closing the communications socket
      * @param[in]   none
      * @return 0 -- communication is closed
      *         others  -- something wrong there
@@ -177,7 +177,7 @@ namespace DrRobot_MotionSensorDriver
     void close();
 
     /*! @brief
-     *  If the driver is configured as using network communication, this function could open UDP port to connect with robot
+     *  This function will open UDP port to connect with robot
      *  and start communication
      * @return 0  port opened and starting communication
      *        -1 Socket failed to open
@@ -188,7 +188,9 @@ namespace DrRobot_MotionSensorDriver
     /*! @brief
      *  This function will use struct DrRobotMotionConfig to configure the driver
      * @param[in]   driverConfig struct DrRobotMotionConfig
-     * @return null
+     * @return 0 for success
+     *        -1 for invalid port number
+     *        -2 for invalid ip address
      */
     void setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig);
 
