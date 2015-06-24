@@ -24,43 +24,40 @@ DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DrRobotMotionSensorDriver
 {
 
   _robotConfig = new DrRobotMotionConfig();
-  _robotConfig->commMethod = Network;
-  sprintf(_robotConfig->serialPortName, "tty0");
 
   _robotConfig->portNum = DEFAULT_PORT;
   sprintf(_robotConfig->robotID, "DrRobot");
   sprintf(_robotConfig->robotIP, "192.168.0.201");
 
-  _robotConfig->boardType = I90_Power;
-
   _nMsgLen = 0;
 
+  // Innitializes ip address, port number, etc. to defaults.
   bzero(&_addr, sizeof(_addr));
+  inet_pton(_addr.sin_family,driverConfig->robotIP, &_addr.sin_addr)
   _addr.sin_family = AF_INET;
   _addr.sin_port = htons(_robotConfig->portNum);
   _addr_len = sizeof _addr;
+
   _numbytes = 0;
-
-  _sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
-  _serialfd = -1;
-
+  
+  // TODO: Identify these
   _tv.tv_sec = 0;
   _tv.tv_usec = 200;             //200us ?
-
-  _stopComm = true;
+  // Flag to stop communications callback loop
+  _stopComm = false;
+  // Count of communication attempts since last received message
   _comCnt = 0;
+  // Threading stuff
   _mutex_Data_Buf = PTHREAD_MUTEX_INITIALIZER;
+  // Flag for whether successful transmission has occurred at least once
   _eCommState = Disconnected;
-  _desID = COM_TYPE_MOT;
-  _pcID = COM_TYPE_PC;
 
 }
 
 DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::~DrRobotMotionSensorDriver()
 {
   if (portOpen())
-    close();
+    ::close();
 }
 
 bool DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::portOpen()
@@ -77,83 +74,16 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::close()
   _stopComm = true;
   _pCommThread->join();
   _eCommState = Disconnected;
-
-  //for UDP , do we need close socket?
-
-  if (_robotConfig->commMethod == Network)
+  
+  if (_sockfd > 0)
   {
-    if (_sockfd > 0)
-    {
-      ::close(_sockfd);
-      _sockfd = -1;
-    }
+    close(_sockfd);
+    _sockfd = -1;
   }
-  else if(_robotConfig->commMethod == Serial)
-  {
-    if (_serialfd > 0)
-      {
-        :: close(_serialfd);
-        _serialfd = -1;
-      }
-  }
+  
 }
 
 
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openSerial(const char* serialPort, const long BAUD)
-{
-
-  if (portOpen())
-    close();
-
-  _robotConfig->commMethod = Serial;
-
-  sprintf(_robotConfig->serialPortName, "%s",serialPort);
-
-  _serialfd = ::open(_robotConfig->serialPortName, O_RDWR | O_NONBLOCK | O_NOCTTY);
-  //_serialfd = ::open("/dev/ttyS0", O_RDWR | O_NONBLOCK | O_NOCTTY);
-  if (_serialfd > 0)
-  {
-    struct termios newtio;
-
-    tcgetattr(_serialfd, &newtio);
-    memset(&newtio.c_cc, 0,sizeof(newtio.c_cc));
-    newtio.c_cflag = BAUD|CS8|CLOCAL|CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
-    newtio.c_lflag = 0;
-    newtio.c_cc[VMIN] = 0;              //VMIN = 0, VTIME = 0, read will return immediately
-    newtio.c_cc[VTIME] = 0;
-    tcflush(_serialfd,TCIFLUSH);
-    tcsetattr(_serialfd,TCSANOW, &newtio);
-
-    printf("listener: waiting for robot server, starting receiving...\n");
-   _eCommState = Connected;
-   _stopComm = false;
-   _pCommThread = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&DrRobotMotionSensorDriver::commWorkingThread, this)));
-     return 0;
- }
-
-  else
-  {
-    const char *extra_msg = "";
-    switch(errno)
-    {
-      case EACCES:
-          extra_msg = "You probably don't have permission to open the port for reading and writing.\n";
-          debug_ouput(extra_msg);
-          break;
-      case ENOENT:
-        extra_msg = "The request port does not exit. Was the port name misspelled?\n";
-        debug_ouput(extra_msg);
-        break;
-    }
-   _stopComm = true;
-   _eCommState = Disconnected;
-    return errno;
-  }
-
-
-}
 
 void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::debug_ouput(const char* errorstr)
 {
@@ -161,195 +91,72 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::debug_ouput(const ch
     printf("DrRobot Motion Sensor: %s", errorstr);
 #endif
 }
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::vali_ip(const char*  ip_str)
+
+int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openNetwork()
 {
-  unsigned int n1,n2,n3,n4;
-  if ( sscanf(ip_str, "%u.%u.%u.%u", &n1,&n2,&n3,&n4) != 4 ) return 1;
-  if ((n1 != 0) && (n1 <= 255) && (n2 <= 255) && (n3 <= 255) && (n4 <= 255) )
-  {
-    char buf[64];
-    sprintf(buf,"%u.%u.%u.%u", n1,n2,n3,n4);
-    if (strcmp(buf,ip_str)) return 1;
-    return 0;
-  }
+  
+  // Closes any open sockets
+  ::close()
 
-  return 1;
-}
-
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openNetwork(const char* robotIP, const int portNum )
-{
-  char temp[512] ;
-  //check the parameter first
-  if (portNum <= 0)
-  {
-
-    debug_ouput(temp);
-    return -1;
-  }
-
-  if (vali_ip(robotIP) == 1)
-  {
-    sprintf(temp, "DrRobot Motion/Sensor Driver Error Message: invalid IP address: %s\n", robotIP);
-    debug_ouput(temp);
-    return -2;
-  }
-  _robotConfig->commMethod = Network;
-  _robotConfig->portNum = portNum;
-
-  sprintf(_robotConfig->robotIP, "%s",robotIP);
-  bzero(&_addr, sizeof(_addr));
-  _addr.sin_family = AF_INET;
-  _addr.sin_port = htons(_robotConfig->portNum);
-
-  if ( inet_aton(_robotConfig->robotIP, &_addr.sin_addr) == 0)
-  {
-    sprintf(temp, "DrRobot Motion/Sensor Driver Error Message: invalid IP address: %s\n", _robotConfig->robotIP);
-    debug_ouput(temp);
-    return -3;
-  }
-
+  // Allow communications
   _stopComm = false;
- _numbytes = sendAck();
- if (_numbytes < 0)
- {
-   _stopComm = true;
-   perror("sendto");
-   return -4;
- }
 
- printf("listener: waiting for robot server, starting receiving...\n");
- _eCommState = Connected;
+  // Tries to open the socket
+  if ( ((_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) && (tries<3))
+  {
+    ::debug_ouput("Couldn't open socket.");
+    return -1
+    }
+  // Tries to send an acknowledgment message
+  _numbytes = sendAck();
+  if (_numbytes < 0)
+  {
+    _stopComm = true;
+    perror("Following error occured on first message attempt");
+    return -2;
+    }
 
+  _eCommState = Connected;
 
- _pCommThread = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&DrRobotMotionSensorDriver::commWorkingThread, this)));
- return 0;
-}
+  // Starts thread for callback loop
+  _pCommThread = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&DrRobotMotionSensorDriver::commWorkingThread, this)));
+  return 0;
+  }
 
 //communication thread here
 void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
   while(!_stopComm)
   {
-     if (_robotConfig->commMethod == Network)
-     {
-
-      FD_ZERO(&_readfds);
-      FD_SET(_sockfd, &_readfds);
-      select(_sockfd + 1, &_readfds, NULL, NULL, &_tv);
-      if (FD_ISSET(_sockfd,&_readfds))
-      {
-        if ((_numbytes = recvfrom(_sockfd, _recBuf, MAXBUFLEN-1 , 0,(struct sockaddr *)&_addr, &_addr_len)) == -1)
-        {
-                perror("recvfrom");
-                return;
-        }
-  #ifdef DEBUG_ERROR
-        printf("listener: packet is %d bytes long\n", _numbytes);
-  #endif
-        _comCnt = 0;
-        handleComData(_recBuf,_numbytes);
-      }
-      else
-      {
-        _comCnt++;
-
-        usleep(10000);              //10ms
-        if (_comCnt > COMM_LOST_TH)
-        {
-          printf("Communication is lost, need close all. IP address %s, Port: %d \n", _robotConfig->robotIP, _robotConfig->portNum);
-          _stopComm = true;
-          return;
-        }
-      }
-     }
-    else if(_robotConfig->commMethod == Serial)
+  FD_ZERO(&_readfds);
+  FD_SET(_sockfd, &_readfds);
+  select(_sockfd + 1, &_readfds, NULL, NULL, &_tv);
+  if (FD_ISSET(_sockfd,&_readfds))
+  {
+    if ((_numbytes = recvfrom(_sockfd, _recBuf, MAXBUFLEN-1 , 0,(struct sockaddr *)&_addr, &_addr_len)) == -1)
     {
-
-      _numbytes = read(_serialfd,_recBuf, sizeof(_recBuf));
-      if (_numbytes <= 0 )   //( (_numbytes == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK) )
-      {
-        //read erro,
-        _comCnt ++;
-        //printf ("Serial time out\n");
-        usleep(10000);
-        if (_comCnt > COMM_LOST_TH)
-        {
-          printf("Communication is lost, need close all. Serial Port is %s \n", _robotConfig->serialPortName);
-          _stopComm = true;
-          _eCommState = Disconnected;
-          ::close(_serialfd);
-          _serialfd = -1;
-        }
-
+      perror("recvfrom");
+      return;
       }
-      else
-      {
-    #ifdef DEBUG_ERROR
-       printf("listener: packet is %d bytes long\n", _numbytes);
-    #endif
-       _comCnt = 0;
-       handleComData(_recBuf,_numbytes);
+  // Debug stream message
+  // TODO: Integrate better with debug_output method
+  #ifdef DEBUG_ERROR
+    printf("listener: packet is %d bytes long\n", _numbytes);
+  #endif
+
+  _comCnt = 0;
+  handleComData(_recBuf,_numbytes);
+    }
+  else
+  {
+    _comCnt++;
+
+    usleep(10000);              //10ms
+    if (_comCnt > COMM_LOST_TH)
+    {
+      printf("Communication lost, need to close all. IP address: %s, Port: %d \n", _robotConfig->robotIP, _robotConfig->portNum);
+      _stopComm = true;
+      return;
       }
-
-
-
-       /*
-      struct pollfd ufd[1];
-      int retval;
-      int timeout = 0;
-      ufd[0].fd = _serialfd;
-      ufd[0].events = POLLIN;
-      //below will block to wait event
-
-      //if (timeout == 0)
-      //  timeout = -1;
-
-
-
-      retval = poll(ufd, 1, timeout);
-      if (retval < 0)
-      {
-        //poll fialed -- error
-        printf("DrRobot Serial Communication error, eroor no is %d: %s", errno, strerror(errno));
-       _stopComm = true;
-       _eCommState = Disconnected;
-       ::close(_sockfd);
-       _sockfd = -1;
-       return;
-      }
-      else if (retval  == 0)
-      {
-        //timeout,
-        _comCnt ++;
-        printf ("Serial time out\n");
-        usleep(10000);
-        if (_comCnt > COMM_LOST_TH)
-        {
-          printf("communication is lost, need close all\n");
-          _stopComm = true;
-          _eCommState = Disconnected;
-          ::close(_serialfd);
-          _serialfd = -1;
-        }
-      }
-      else
-      {
-        _numbytes = read(_serialfd,_recBuf, sizeof(_recBuf));
-        if ( (_numbytes == -1) && (errno != EAGAIN) && (errno != EWOULDBLOCK) )
-        {
-          //read erro,
-          _comCnt ++;
-        }
-        else
-        {
-#ifdef DEBUG_ERROR
-       printf("listener: packet is %d bytes long\n", _numbytes);
- #endif
-       _comCnt = 0;
-       handleComData(_recBuf,_numbytes);
-        }
-      }
-      */
-
     }
   }
   return;
@@ -385,7 +192,6 @@ unsigned char DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::CalculateCR
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendAck()
 {
   unsigned char msg[] = {COM_STX0,COM_STX1,COM_TYPE_MOT,0,0xff,1,1,0,COM_ETX0,COM_ETX1};
-  msg[2] = _desID;
   msg[7] = CalculateCRC(&msg[2],msg[5] + 4);
   return sendCommand(msg,10);
 }
@@ -404,7 +210,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
 
                   return;
           }
-          else if ( lpComData[INDEX_DES] != _pcID )
+          else if ( lpComData[INDEX_DES] != COM_TYPE_PC )
           {
             debugCommMessage("invalid packet destination id PC, discard it!\n");
             return;
@@ -481,13 +287,12 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
               {
                 _motorSensorData.motorSensorPot[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
               }
-              if (_robotConfig->boardType == Jaguar)
+              
+              for (int i = 0; i < MOTORSENSOR_NUM; i++)
               {
-                for (int i = 0; i < MOTORSENSOR_NUM; i++)
-                {
-                  _motorSensorData.motorSensorPWM[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
-                }
+                _motorSensorData.motorSensorPWM[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
               }
+              
 
               for (int i = 0; i < MOTORSENSOR_NUM; i ++)
               {
@@ -524,86 +329,48 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
 
               _customSensorData.customIO = lpComData[INDEX_DATA + 16];
 
-              if (_robotConfig->boardType != Jaguar)
+              _motorSensorData.motorSensorEncoderPos[3] = lpComData[INDEX_DATA + 17] + lpComData[INDEX_DATA + 18] * 256;
+              _motorSensorData.motorSensorEncoderVel[3] = lpComData[INDEX_DATA + 19] + lpComData[INDEX_DATA + 20] * 256;
+
+              temp = lpComData[INDEX_DATA + 21] + lpComData[INDEX_DATA + 22] * 256;
+              if (temp & 0x01)
               {
-                for (int i = 0; i < 6 ; i ++)
-                {
-                  _rangeSensorData.irRangeSensor[1 + i] = _customSensorData.customADData[2 + i];
-                }
-
+                _motorSensorData.motorSensorEncoderDir[3] = 1;
               }
-
-              if ((_robotConfig->boardType == I90_Power) || (_robotConfig->boardType == Sentinel3_Power) ||(_robotConfig->boardType == Hawk_H20_Power))
+              else
               {
-                _powerSensorData.battery1Vol = lpComData[INDEX_DATA + 0] + lpComData[INDEX_DATA + 1] * 256;
-                _powerSensorData.battery1Thermo = lpComData[INDEX_DATA + 2] + lpComData[INDEX_DATA + 3] * 256;
-                _powerSensorData.battery2Vol = lpComData[INDEX_DATA + 4] + lpComData[INDEX_DATA + 5] * 256;
-                _powerSensorData.battery2Thermo = lpComData[INDEX_DATA + 6] + lpComData[INDEX_DATA + 7] * 256;
-                _powerSensorData.dcINVol = lpComData[INDEX_DATA + 8] + lpComData[INDEX_DATA + 9] * 256;
-                _powerSensorData.refVol = lpComData[INDEX_DATA + 19] + lpComData[INDEX_DATA + 20] * 256;
-                _powerSensorData.powerChargePath = lpComData[INDEX_DATA + 29];
-                _powerSensorData.powerPath = lpComData[INDEX_DATA + 27];
-                _powerSensorData.powerStatus = lpComData[INDEX_DATA + 16];
+                _motorSensorData.motorSensorEncoderDir[3] = 0;
               }
-              if (_robotConfig->boardType == Jaguar)
+              _motorSensorData.motorSensorEncoderPos[4] = lpComData[INDEX_DATA + 23] + lpComData[INDEX_DATA + 24] * 256;
+              _motorSensorData.motorSensorEncoderVel[4] = lpComData[INDEX_DATA + 25] + lpComData[INDEX_DATA + 26] * 256;
+
+              temp = lpComData[INDEX_DATA + 27] + lpComData[INDEX_DATA + 28] * 256;
+              if (temp & 0x01)
               {
-                _motorSensorData.motorSensorEncoderPos[3] = lpComData[INDEX_DATA + 17] + lpComData[INDEX_DATA + 18] * 256;
-                _motorSensorData.motorSensorEncoderVel[3] = lpComData[INDEX_DATA + 19] + lpComData[INDEX_DATA + 20] * 256;
-
-		temp = lpComData[INDEX_DATA + 21] + lpComData[INDEX_DATA + 22] * 256;
-                if (temp & 0x01)
-                {
-                  _motorSensorData.motorSensorEncoderDir[3] = 1;
-                }
-                else
-                {
-                  _motorSensorData.motorSensorEncoderDir[3] = 0;
-                }
-                _motorSensorData.motorSensorEncoderPos[4] = lpComData[INDEX_DATA + 23] + lpComData[INDEX_DATA + 24] * 256;
-                _motorSensorData.motorSensorEncoderVel[4] = lpComData[INDEX_DATA + 25] + lpComData[INDEX_DATA + 26] * 256;
-
-		temp = lpComData[INDEX_DATA + 27] + lpComData[INDEX_DATA + 28] * 256;
-                if (temp & 0x01)
-                {
-                  _motorSensorData.motorSensorEncoderDir[4] = 1;
-                }
-                else
-                {
-                  _motorSensorData.motorSensorEncoderDir[4] = 0;
-                }
+                _motorSensorData.motorSensorEncoderDir[4] = 1;
               }
+              else
+              {
+                _motorSensorData.motorSensorEncoderDir[4] = 0;
+              }
+              
 
               pthread_mutex_unlock(&_mutex_Data_Buf);
               debugCommMessage("receive custom sensor data packet!\n");
               break;
             case COMTYPE_STANDARD_SENSOR:
               pthread_mutex_lock(&_mutex_Data_Buf);
-              for (int i = 0; i < ULTRASONICSENSOR_NUM; i ++)
-              {
-                _rangeSensorData.usRangeSensor[i] = lpComData[INDEX_DATA + i];
-              }
               for (int i = 0; i < 4 ; i ++)
               {
                 _standardSensorData.humanSensorData[i] = lpComData[INDEX_DATA + 6 + 2*i] + lpComData[INDEX_DATA + 6 + 2 * i + 1] * 256;
               }
-              _standardSensorData.tiltingSensorData[0] = lpComData[INDEX_DATA + 14] + lpComData[INDEX_DATA + 15] * 256;
-              _standardSensorData.tiltingSensorData[1] = lpComData[INDEX_DATA + 16] + lpComData[INDEX_DATA + 17] * 256;
               _standardSensorData.overHeatSensorData[0] = lpComData[INDEX_DATA + 18] + lpComData[INDEX_DATA + 19] * 256;
               _standardSensorData.overHeatSensorData[1] = lpComData[INDEX_DATA + 20] + lpComData[INDEX_DATA + 21] * 256;
-              _standardSensorData.thermoSensorData = lpComData[INDEX_DATA + 22] + lpComData[INDEX_DATA + 23] * 256;
-              _rangeSensorData.irRangeSensor[0] = lpComData[INDEX_DATA + 24] + lpComData[INDEX_DATA + 25] * 256;
               _standardSensorData.boardPowerVol = lpComData[INDEX_DATA + 30] + lpComData[INDEX_DATA + 31] * 256;
               _standardSensorData.motorPowerVol = lpComData[INDEX_DATA + 32] + lpComData[INDEX_DATA + 33] * 256;
               _standardSensorData.servoPowerVol = lpComData[INDEX_DATA + 34] + lpComData[INDEX_DATA + 35] * 256;
               _standardSensorData.refVol = lpComData[INDEX_DATA + 36] + lpComData[INDEX_DATA + 37] * 256;
               _standardSensorData.potVol = lpComData[INDEX_DATA + 38] + lpComData[INDEX_DATA + 39] * 256;
-
-              if (_robotConfig->boardType != Jaguar) 
-              {
-                _rangeSensorData.irRangeSensor[7] = _standardSensorData.thermoSensorData;
-                _rangeSensorData.irRangeSensor[8] = _standardSensorData.tiltingSensorData[0];
-                _rangeSensorData.irRangeSensor[9] = _standardSensorData.tiltingSensorData[1];
-              }
 
               pthread_mutex_unlock(&_mutex_Data_Buf);
               debugCommMessage("receive standard sensor data packet!\n");
@@ -736,40 +503,43 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::debugCommMessage(std
 
 }
 
-void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: getDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig)
+void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::getDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig)
 {
 
   strcpy(driverConfig->robotID,_robotConfig->robotID);
-  driverConfig->boardType = _robotConfig->boardType;
-  driverConfig->commMethod = _robotConfig->commMethod;
   driverConfig->portNum = _robotConfig->portNum;
   strcpy(driverConfig->robotIP, _robotConfig->robotIP);
-  strcpy(driverConfig->serialPortName, _robotConfig->serialPortName);
 
   return;
 }
 
-void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig)
+void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig)
 {
-
+  // Temporary variable for debug string
+  char temp[512];
+  // Checks if the ip is valid
+  if (inet_pton(_addr.sin_family,driverConfig->robotIP, &_addr.sin_addr) == 0)
+  {
+    sprintf(temp, "DrRobot Motion/Sensor Driver Error Message: invalid IP address: %s\n", driverConfig->robotIP);
+    debug_ouput(temp);
+    // Clears the bad data, just in case
+    bzero(&_addr, sizeof(_addr));
+    return -2;
+    }
+  // Checks if the port number is valid
+  if (portNum <= 0)
+  {
+    sprintf(temp, "DrRobot Motion/Sensor Driver Error Message: invalid IP address: %i\n", driverConfig->portNum);
+    debug_ouput(temp);
+    return -1;
+    }
+  // Loads in the validated ip, port, and the new robot ID
   strcpy(_robotConfig->robotID,driverConfig->robotID);
-  _robotConfig->boardType = driverConfig->boardType;
-  _robotConfig->commMethod = driverConfig->commMethod;
   _robotConfig->portNum = driverConfig->portNum;
   strcpy(_robotConfig->robotIP,driverConfig->robotIP);
-  strcpy(_robotConfig->serialPortName,driverConfig->serialPortName);
-
-  if ((_robotConfig->boardType == I90_Motion) || (_robotConfig->boardType == I90_Power) || (_robotConfig->boardType == Jaguar))
-  {
-    _pcID = COM_TYPE_PC;
-    _desID = COM_TYPE_MOT;
-  }
-  else
-  {
-    _pcID = COM_TYPE_PC_PLUS;
-    _desID = COM_TYPE_MOT_PLUS;
-  }
-
+  // Ensures that the portNum is in big Endian notation to comply with network protocol
+  _addr.sin_port = htons(_robotConfig->portNum);
+  
   return;
 }
 
@@ -780,16 +550,9 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readMotorSensorData(M
   pthread_mutex_unlock(&_mutex_Data_Buf);
   return 0;
 }
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: readPowerSensorData(PowerSensorData* powerSensorData)
-{
-  pthread_mutex_lock(&_mutex_Data_Buf);
-  memcpy(powerSensorData,&_powerSensorData,sizeof(PowerSensorData));
-  pthread_mutex_unlock(&_mutex_Data_Buf);
-  return 0;
-}
 
 
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: readCustomSensorData(CustomSensorData* customSensorData)
+int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readCustomSensorData(CustomSensorData* customSensorData)
 {
 
   pthread_mutex_lock(&_mutex_Data_Buf);
@@ -798,15 +561,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: readCustomSensorData
   return 0;
  }
 
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: readRangeSensorData(RangeSensorData* rangeSensorData)
-{
-  pthread_mutex_lock(&_mutex_Data_Buf);
-  memcpy(rangeSensorData, &_rangeSensorData, sizeof(RangeSensorData));
-  pthread_mutex_unlock(&_mutex_Data_Buf);
-  return 0;
-}
-
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: readStandardSensorData(StandardSensorData* standardSensorData)
+int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readStandardSensorData(StandardSensorData* standardSensorData)
 {
   pthread_mutex_lock(&_mutex_Data_Buf);
   memcpy(standardSensorData,&_standardSensorData,sizeof(StandardSensorData));
@@ -815,14 +570,16 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: readStandardSensorDa
 }
 
 
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver:: sendMotorCtrlAllCmd(CtrlMethod ctrlMethod, const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6, const int time)
+int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(CtrlMethod ctrlMethod, const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6, const int time)
 {
   unsigned char msg[255];
   short tempCmd = 0;
   short tempTime = time;
   if (tempTime <= 0) tempTime = 1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   if (ctrlMethod == PWM)
   {
     msg[4] = MOTORPWMCTRLALL;
@@ -878,8 +635,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(C
 {
   unsigned char msg[255];
    short tempCmd = 0;
-   msg[0] = COM_STX0; msg[1] = COM_STX1;
-   msg[2] = _desID; msg[3] = 0;
+   msg[0] = COM_STX0;
+   msg[1] = COM_STX1;
+   msg[2] = COM_TYPE_MOT;
+   msg[3] = 0;
    if (ctrlMethod == PWM)
     {
       msg[4] = MOTORPWMCTRLALL;
@@ -933,8 +692,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(Ctrl
   short tempTime = (short)( time & 0xffff);
   if ((channel < 0) || (channel > 5))
     return -1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   if (ctrlMethod == PWM)
   {
     msg[4] = MOTORPWMCTRL;
@@ -963,8 +724,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(Ctrl
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
      return -1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   if (ctrlMethod == PWM)
   {
     msg[4] = MOTORPWMCTRL;
@@ -993,8 +756,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
   short tempCmd = 0;
   short tempTime = time;
   if (tempTime <= 0) tempTime = 1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
 
   msg[4] = SERVOCTRLALL;
   msg[5] = 14;
@@ -1041,8 +806,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 {
   unsigned char msg[255];
   short tempCmd = 0;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
 
   msg[4] = SERVOCTRLALL;
   msg[5] = 12;
@@ -1085,9 +852,11 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
   unsigned char msg[255];
   short tempTime = (short)( time & 0xffff);
   if ((channel < 0) || (channel > 5))
-	return -1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  return -1;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
 
   msg[4] = SERVOCTRL;
 
@@ -1106,8 +875,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   msg[4] = SERVOCTRL;
   msg[5] = 3;
   msg[6] = (unsigned char)(channel & 0xff);
@@ -1123,8 +894,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableMotorCmd(const
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   msg[4] = MOTORENABLE;
   msg[5] = 2;
   msg[6] = 0;
@@ -1140,8 +913,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableServoCmd(const
   if ((channel < 0) || (channel > 5))
     return -1;
 
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   msg[4] = MOTORENABLE;
   msg[5] = 2;
   msg[6] = 0;
@@ -1157,8 +932,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlP
   unsigned char msg[255];
   if ( (channel < 0) || (channel > 5) )
     return -1;
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   msg[4] = MOTORPARAMETERSETTING;
   msg[5] = 11;
   msg[6] = POSITIONPID;
@@ -1180,8 +957,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlP
   if ( (channel < 0) || (channel > 5) )
   return -1;
 
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   msg[4] = MOTORPARAMETERSETTING;
   msg[5] = 11;
   msg[6] = VELOCITYPID;
@@ -1200,8 +979,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorFricCompensat
 {
   unsigned char msg[255];
 
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
 
   msg[4] = MOTORFRICCOMP;
   msg[5] = 12;
@@ -1223,8 +1004,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setCustomIO(const int
 {
   unsigned char msg[255];
 
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
   msg[4] = CUSTOMIO;
   msg[5] = 1;
   msg[6] = (unsigned char)(cmd & 0x0000ff);
@@ -1233,22 +1016,6 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setCustomIO(const int
   return sendCommand(msg, 10);
 }
 
-int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendPowerCtrlCmd(const int cmd)
-{
-  unsigned char msg[255];
-
-  msg[0] = COM_STX0; msg[1] = COM_STX1;
-  msg[2] = _desID; msg[3] = 0;
-  msg[4] = POWERCTRL;
-  msg[5] = 1;
-  msg[6] = (unsigned char)(cmd & 0x0000ff);
-  msg[7] = CalculateCRC(&msg[2], msg[5] + 4);
-  msg[8] = COM_ETX0; msg[9] = COM_ETX1;
-  return sendCommand(msg, 10);
-}
-
-
-
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendCommand(const unsigned char* msg, const int nLen)
 {
@@ -1256,7 +1023,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendCommand(const uns
   if (!_stopComm)
   {
 
-    if ( (_robotConfig->commMethod == Network) && ( _sockfd > 0))
+    if (_sockfd > 0)
     {
       int retval = sendto(_sockfd, msg, nLen, 0,(const struct sockaddr *)&_addr,sizeof(_addr));
       if (retval > 0)
@@ -1268,25 +1035,6 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendCommand(const uns
          perror("sendto");
          return -1;
        }
-    }
-    else if( (_robotConfig->commMethod == Serial) && (_serialfd > 0))
-    {
-      int origflags = fcntl(_serialfd, F_GETFL,0);
-      fcntl(_serialfd,F_SETFL,origflags & ~O_NONBLOCK);
-
-      retval = write(_serialfd, msg, nLen);
-      int fputserrno = errno;
-      fcntl(_serialfd,F_SETFL,origflags | O_NONBLOCK);
-      errno =fputserrno;
-      if (retval != -1)
-      {
-        return retval;
-      }
-      else
-      {
-        return -1;
-      }
-
     }
   }
   return -1;
