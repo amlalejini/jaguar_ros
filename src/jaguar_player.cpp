@@ -45,12 +45,12 @@ double DEFAULT_FLIPPER_MOTOR_MIN_SPEED = 0.1;
 class JaguarPlayer {
     /*
         This class defines the ROS node that interfaces with the DrRobot Jaguar's
-        motorolla evaluation board.  This board controls robot PWM control, motor encoder data reportings,
+        motorola evaluation board.  This board controls robot PWM control, motor encoder data reportings,
         the front headlights, and <OTHER SENSORS TO BE DETERMINED>
     */
 public:
-    JaguarPlayer();         // Constuctor
-    ~JaguarPlayer();        // Destructor
+    JaguarPlayer(void);         // Constuctor
+    ~JaguarPlayer(void);        // Destructor
     
     void run(void);         // Main run function for jaguar player node
 
@@ -83,8 +83,11 @@ private:
     double flipper_max_speed;
     double flipper_min_speed;
     int flipper_motor_direction;
+    // Sensor data variables
+    struct MotorSensorData motor_sensor_data;
 
     void connect(void);
+    void update(void);
 
     void driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg);
     void frontFlipperCallback(const std_msgs::Float32::ConstPtr& msg);
@@ -129,7 +132,7 @@ JaguarPlayer::JaguarPlayer() {
     jaguar_driver_config.boardType = Jaguar;
     // - Set jaguar player network port number
     jaguar_driver_config.portNum = jaguar_network_port;
-    // - Set jaguar player IP (IP of motorolla eval board)
+    // - Set jaguar player IP (IP of motorola eval board)
     strcpy(jaguar_driver_config.robotIP, jaguar_network_ip.c_str());
     // - Set jaguar player serial port 
     strcpy(jaguar_driver_config.serialPortName, "garbage");
@@ -213,18 +216,53 @@ void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
 }
 
 void JaguarPlayer::frontFlipperCallback(const std_msgs::Float32::ConstPtr& msg) {
-    /**/
-    ROS_INFO("FRONT FLIPPER COMMAND RECEIVED");
+    /*
+        Front flipper commands callback funtion.  This function is called every time
+        commands are received over the front flipper control topic.
+    */
+    double flipper_vel = msg->data;
+    // PWM Control (copied from origin drrobot_player node code)
+    int flipperPWM = -flipper_motor_direction * flipper_vel * 16384 + 16384;
+    if (flipperPWM > 32767) flipperPWM = 32767;
+    if (flipperPWM < 0) flipperPWM = 0;
+    // send PWM commands to flipper motors
+    // TODO: switch this from all command to just single command
+    jaguar_driver->sendMotorCtrlAllCmd(PWM, flipperPWM, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL);
+    
 }
 
 void JaguarPlayer::rearFlipperCallback(const std_msgs::Float32::ConstPtr& msg) {
-    /**/
-    ROS_INFO("REAR FLIPPER COMMAND RECEIVED");
+    /*
+        Rear flipper commands callback function.  This function is called every time
+        commands are received over the rear flipper control topic.
+    */
+    double flipper_vel = msg->data;
+    // PWM Control (copied from origin drrobot_player node code)
+    int flipperPWM = -flipper_motor_direction * flipper_vel * 16384 + 16384;
+    if (flipperPWM > 32767) flipperPWM = 32767;
+    if (flipperPWM < 0) flipperPWM = 0;
+    // send PWM commands to flipper motors
+    // TODO: switch this from all command to just single command
+    jaguar_driver->sendMotorCtrlAllCmd(PWM, NOCONTROL, flipperPWM, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL);
 }
 
 void JaguarPlayer::headlightCallback(const std_msgs::Bool::ConstPtr& msg) {
-    /**/
-    ROS_INFO("HEADLIGHT COMMAND RECEIVED");
+    /*
+        Headlight commands callback function.  This function is called every time 
+        commands are received over the headlight control topic.
+    */
+    if (msg->data)
+        jaguar_driver->setCustomIO(0x7f);
+    else
+        jaguar_driver->setCustomIO(0x80);
+}
+
+void JaguarPlayer::update() {
+    /*
+        This function is called by the run function at each time step.
+        Update is responsible for updating all sensor data received from the motorola eval board.
+    */
+    //jaguar_driver->readMotorSensorData();
 }
 
 void JaguarPlayer::run() {
@@ -234,6 +272,7 @@ void JaguarPlayer::run() {
 
     ros::Rate rate(100); // Create target rate for main loop to run at
     while (ros::ok()) {
+        //update();
         ros::spinOnce();
         rate.sleep();
     }
