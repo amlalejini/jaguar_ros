@@ -1,5 +1,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/Bool.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +27,9 @@ string DEFAULT_JAGUAR_NETWORK_IP = "192.168.0.70";
 int DEFAULT_JAGUAR_NETWORK_PORT = 10001;
 // Topics
 string DEFAULT_DRIVE_VEL_TOPIC = "cmd_vel";
+string DEFAULT_FRONT_FLIPPER_CONTROL_TOPIC = "front_flipper_cmds";
+string DEFAULT_REAR_FLIPPER_CONTROL_TOPIC = "rear_flipper_cmds";
+string DEFAULT_HEADLIGHT_CONTROL_TOPIC = "headlight_cmds";
 // Motor Constants
 //   - Drive motor constants
 int DEFAULT_DRIVE_MOTOR_DIRECTION = 1;
@@ -57,6 +62,9 @@ private:
     ros::NodeHandle node_handle;
 
     ros::Subscriber drive_vel_sub;
+    ros::Subscriber front_flipper_cmds_sub;
+    ros::Subscriber rear_flipper_cmds_sub;
+    ros::Subscriber headlight_cmds_sub;
 
     // Networking variables
     string jaguar_network_ip;
@@ -65,6 +73,9 @@ private:
     struct DrRobotMotionConfig jaguar_driver_config;
     // Topic names
     string drive_vel_topic;
+    string front_flipper_ctrl_topic;
+    string rear_flipper_ctrl_topic;
+    string headlight_ctrl_topic;
     // Motor parameters (can't use floats because of ros param server compatibility issue)
     double drive_max_speed;
     double drive_min_speed;
@@ -76,13 +87,15 @@ private:
     void connect(void);
 
     void driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg);
-
+    void frontFlipperCallback(const std_msgs::Float32::ConstPtr& msg);
+    void rearFlipperCallback(const std_msgs::Float32::ConstPtr& msg);
+    void headlightCallback(const std_msgs::Bool::ConstPtr& msg);
 };
 
 JaguarPlayer::JaguarPlayer() {
     /*
-        Jaguar Player default contructor.
-    */
+     *   Jaguar Player default contructor.
+     */
 
     ///////////////////////////////////////////////////////
     // Load parameters from parameter server
@@ -92,7 +105,9 @@ JaguarPlayer::JaguarPlayer() {
     node_handle.param<int>("player/network_port", jaguar_network_port, DEFAULT_JAGUAR_NETWORK_PORT);
     // - Load topic names
     node_handle.param<string>("robot_control_topics/drive_control", drive_vel_topic, DEFAULT_DRIVE_VEL_TOPIC);
-
+    node_handle.param<string>("robot_control_topics/front_flipper_control", front_flipper_ctrl_topic, DEFAULT_FRONT_FLIPPER_CONTROL_TOPIC);
+    node_handle.param<string>("robot_control_topics/rear_flipper_control", rear_flipper_ctrl_topic, DEFAULT_REAR_FLIPPER_CONTROL_TOPIC);
+    node_handle.param<string>("robot_control_topics/headlight_control", headlight_ctrl_topic, DEFAULT_HEADLIGHT_CONTROL_TOPIC);
     // - Load Motor parameters
     //   - Drive
     node_handle.param<double>("motors/drive/max_speed", drive_max_speed, DEFAULT_DRIVE_MOTOR_MAX_SPEED);
@@ -129,7 +144,7 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////
     // Robot startup
     ///////////////////////////////////////////////////////    
-    // connect to robot
+    // - Connect to robot
     connect();
 
     ///////////////////////////////////////////////////////
@@ -140,8 +155,9 @@ JaguarPlayer::JaguarPlayer() {
     // Setup ROS Subscribers
     ///////////////////////////////////////////////////////
     drive_vel_sub = node_handle.subscribe<geometry_msgs::Twist>(drive_vel_topic, 1000, boost::bind(&JaguarPlayer::driveVelCallback, this, _1));
-
-
+    front_flipper_cmds_sub = node_handle.subscribe<std_msgs::Float32>(front_flipper_ctrl_topic, 1000, boost::bind(&JaguarPlayer::frontFlipperCallback, this, _1));
+    rear_flipper_cmds_sub = node_handle.subscribe<std_msgs::Float32>(rear_flipper_ctrl_topic, 1000, boost::bind(&JaguarPlayer::rearFlipperCallback, this, _1));
+    headlight_cmds_sub = node_handle.subscribe<std_msgs::Bool>(headlight_ctrl_topic, 1000, boost::bind(&JaguarPlayer::headlightCallback, this, _1));
 }
 
 
@@ -157,8 +173,8 @@ JaguarPlayer::~JaguarPlayer() {
 
 void JaguarPlayer::connect() {
     /*
-     *  This function attempts to connect to Jaguar robot.
-     *  If it fails, it retries.
+       This function attempts to connect to Jaguar robot.
+       If it fails, it retries.
     */
     while (ros::ok()) {
         // attempt to connect to jaguar 
@@ -177,7 +193,7 @@ void JaguarPlayer::connect() {
 
 void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
     /* 
-     * Gets called when message is received over the drive control topic (typically cmd_vel).
+      Gets called when message is received over the drive control topic (typically cmd_vel).
     */
      double lin_vel = msg->linear.x;
      double rot_vel = msg->angular.z;
@@ -196,13 +212,30 @@ void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
      //jaguar_driver->sendMotorCtrlAllCmd(Velocity, NOCONTROL, NOCONTROL, NOCONTROL, lin_vel, rot_vel, NOCONTROL);
 }
 
+void JaguarPlayer::frontFlipperCallback(const std_msgs::Float32::ConstPtr& msg) {
+    /**/
+    ROS_INFO("FRONT FLIPPER COMMAND RECEIVED");
+}
+
+void JaguarPlayer::rearFlipperCallback(const std_msgs::Float32::ConstPtr& msg) {
+    /**/
+    ROS_INFO("REAR FLIPPER COMMAND RECEIVED");
+}
+
+void JaguarPlayer::headlightCallback(const std_msgs::Bool::ConstPtr& msg) {
+    /**/
+    ROS_INFO("HEADLIGHT COMMAND RECEIVED");
+}
+
 void JaguarPlayer::run() {
+    /*
+      Main Jaguar Player run loop.
+    */
 
     ros::Rate rate(100); // Create target rate for main loop to run at
     while (ros::ok()) {
         ros::spinOnce();
         rate.sleep();
-
     }
 }
 
