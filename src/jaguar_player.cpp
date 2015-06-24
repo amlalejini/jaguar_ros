@@ -1,6 +1,8 @@
 #include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 
 #include "DrRobotMotionSensorDriver.hpp"
@@ -74,8 +76,9 @@ private:
     double min_speed;
     double max_speed;
 
-    void start(void);
+    void connect(void);
 
+    void driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg);
 
 };
 
@@ -130,7 +133,7 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////
     // Setup ROS Subscribers
     ///////////////////////////////////////////////////////
-
+    drive_vel_sub = node_handle.subscribe(drive_vel_topic, 1000, driveVelCallback);
     ///////////////////////////////////////////////////////
     // Create Jaguar Driver
     ///////////////////////////////////////////////////////
@@ -142,7 +145,7 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////    
     // connect to robot
     ROS_INFO("ENTERING CONNECT FUNCTION");
-    start();
+    connect();
     ROS_INFO("OUT OF CONNECT FUNCTION");
 }
 
@@ -150,11 +153,13 @@ JaguarPlayer::~JaguarPlayer() {
     /*
         JaguarPlayer destructor.
     */
+    // clean up comms
+    jaguar_driver->close();
     // clean up jaguar driver
     delete jaguar_driver;
 }
 
-void JaguarPlayer::start() {
+void JaguarPlayer::connect() {
     /*
      *  This function attempts to connect to Jaguar robot.
      *  If it fails, it retries.
@@ -172,6 +177,26 @@ void JaguarPlayer::start() {
             ros::Duration(3).sleep();
         }
     }
+}
+
+void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
+    /* 
+     * Gets called when message is received over the drive control topic (typically cmd_vel).
+    */
+     double lin_vel = msg->linear.x;
+     double rot_vel = msg->angular.z;
+     /* PWM control
+     int linPWM = -motor_direction * lin_vel * 16384 + 16384;
+     int rotPWM = -motor_direction * rot_vel * 16384 + 16384;
+     if (linPWM > 32767) linPWM = 32767;
+     if (linPWM < 0) linPWM = 0;
+     if (rotPWM > 32767) rotPWM = 32767;
+     if (rotPWM < 0) rotPWM = 0;
+
+     jaguar_driver->sendMotorCtrlAllCmd(PWM, NOCONTROL, NOCONTROL, NOCONTROL, linPWM, rotPWM, NOCONTROL);
+    */
+     // Velocity control
+     jaguar_driver->sendMotorCtrlAllCmd(Velocity, NOCONTROL, NOCONTROL, NOCONTROL, lin_vel, rot_vel, NOCONTROL);
 }
 
 void JaguarPlayer::run() {
