@@ -125,17 +125,10 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////
     // Setup Jaguar driver configuration
     ///////////////////////////////////////////////////////
-    //  - Set communication type (network or serial)
-    // TODO: get rid of commMethod, board type, and serialPortName when Lucas' code is merged with mine.
-    jaguar_driver_config.commMethod = Network;
-    // - Set robot type (Jaguar)
-    jaguar_driver_config.boardType = Jaguar;
     // - Set jaguar player network port number
     jaguar_driver_config.portNum = jaguar_network_port;
     // - Set jaguar player IP (IP of motorola eval board)
     strcpy(jaguar_driver_config.robotIP, jaguar_network_ip.c_str());
-    // - Set jaguar player serial port 
-    strcpy(jaguar_driver_config.serialPortName, "garbage");
     ///////////////////////////////////////////////////////
     
     ///////////////////////////////////////////////////////
@@ -181,7 +174,7 @@ void JaguarPlayer::connect() {
     */
     while (ros::ok()) {
         // attempt to connect to jaguar 
-        int response = jaguar_driver->openNetwork(jaguar_driver_config.robotIP, jaguar_driver_config.portNum);
+        int response = jaguar_driver->openNetwork();
         if (response == 0) {
             // if successful, report success and break loop
             ROS_INFO("Connected to Jaguar at %s on port %d", jaguar_driver_config.robotIP, jaguar_driver_config.portNum);
