@@ -84,7 +84,12 @@ private:
     double flipper_min_speed;
     int flipper_motor_direction;
     // Sensor data variables
-    struct MotorSensorData motor_sensor_data;
+    struct MotorSensorData motor_sensor_data; // documented in DrRobotMotionSensorDriver.hpp
+    //struct RangeSensorData rangeSensorData_;
+    struct PowerSensorData power_sensor_data;
+    // TODO: GET RID OF standard and custom sensor data variables. (break them up)
+    struct StandardSensorData standard_sensor_data;
+    struct CustomSensorData custom_sensor_data;
 
     void connect(void);
     void update(void);
@@ -262,7 +267,28 @@ void JaguarPlayer::update() {
         This function is called by the run function at each time step.
         Update is responsible for updating all sensor data received from the motorola eval board.
     */
-    //jaguar_driver->readMotorSensorData();
+    if (jaguar_driver->portOpen()) {
+        jaguar_driver->readMotorSensorData(&motor_sensor_data);
+        // Motor sensor numbers: (looking towards front of robot)
+        // - 0: front flipper
+        // - 1: Rear flipper
+        // - 2: not used
+        // - 3: right(port) drive track
+        // - 4: left(starboard) drive track
+        // - 5: not used
+        //
+        for (int i = 0; i < 6; ++i) {
+            printf("===================\n");
+            printf("Motor %d sensor data:\n", i);
+            int encoder_pos = motor_sensor_data.motorSensorEncoderPos[i];
+            int encoder_vel = motor_sensor_data.motorSensorEncoderVel[i];
+            int encoder_dir = motor_sensor_data.motorSensorEncoderDir[i];
+            printf("Encoder Pos: %d \n", encoder_pos);
+            printf("Encoder Vel: %d \n", encoder_vel);
+            printf("Encoder Dir: %d \n", encoder_dir);
+        }
+    }
+    
 }
 
 void JaguarPlayer::run() {
@@ -270,9 +296,9 @@ void JaguarPlayer::run() {
       Main Jaguar Player run loop.
     */
 
-    ros::Rate rate(100); // Create target rate for main loop to run at
+    ros::Rate rate(10); // Create target rate for main loop to run at
     while (ros::ok()) {
-        //update();
+        update();
         ros::spinOnce();
         rate.sleep();
     }
