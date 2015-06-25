@@ -282,9 +282,9 @@ void JaguarPlayer::headlightCallback(const std_msgs::Bool::ConstPtr& msg) {
         commands are received over the headlight control topic.
     */
     if (msg->data)
-        jaguar_driver->setCustomIO(0x7f);
-    else
         jaguar_driver->setCustomIO(0x80);
+    else
+        jaguar_driver->setCustomIO(0x7f);
 }
 
 void JaguarPlayer::update() {
