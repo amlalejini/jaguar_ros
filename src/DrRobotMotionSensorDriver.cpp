@@ -144,6 +144,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
   #endif
 
   _comCnt = 0;
+  // Processes the com data
   handleComData(_recBuf,_numbytes);
     }
   else
@@ -164,7 +165,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
   return;
 }
 
-
+// TODO: Decipher this method
 unsigned char DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::CalculateCRC(const unsigned char *lpBuffer, const int nSize)
 {
   unsigned char shift_reg, sr_lsb, data_bit, v;
@@ -190,7 +191,7 @@ unsigned char DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::CalculateCR
   return shift_reg;
 
 }
-
+// Sends an acknowledgment message
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendAck()
 {
   unsigned char msg[] = {COM_STX0,COM_STX1,COM_TYPE_MOT,0,0xff,1,1,0,COM_ETX0,COM_ETX1};
@@ -549,6 +550,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDriv
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readMotorSensorData(MotorSensorData* motorSensorData)
 {
+  // Pauses callback thread to extract data (I think)
   pthread_mutex_lock(&_mutex_Data_Buf);
   memcpy(motorSensorData,&_motorSensorData,sizeof(MotorSensorData));
   pthread_mutex_unlock(&_mutex_Data_Buf);
@@ -558,7 +560,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readMotorSensorData(M
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readCustomSensorData(CustomSensorData* customSensorData)
 {
-
+  // Pauses callback thread to extract data (I think)
   pthread_mutex_lock(&_mutex_Data_Buf);
   memcpy(customSensorData, &_customSensorData, sizeof(CustomSensorData));
   pthread_mutex_unlock(&_mutex_Data_Buf);
@@ -567,6 +569,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readCustomSensorData(
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readStandardSensorData(StandardSensorData* standardSensorData)
 {
+  // Pauses callback thread to extract data (I think)
   pthread_mutex_lock(&_mutex_Data_Buf);
   memcpy(standardSensorData,&_standardSensorData,sizeof(StandardSensorData));
   pthread_mutex_unlock(&_mutex_Data_Buf);
@@ -756,7 +759,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(Ctrl
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6, const int time)
 {
-  // TODO: Check board docs and check if it's even used...
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   short tempCmd = 0;
   short tempTime = time;
@@ -809,7 +812,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6)
 {
-  // TODO: Check board docs and check if it's even used...
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   short tempCmd = 0;
   msg[0] = COM_STX0;
@@ -855,7 +858,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(const int channel, const int cmd, const int time)
 {
-  // TODO: Check board docs and check if it's even used...
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   short tempTime = (short)( time & 0xffff);
   if ((channel < 0) || (channel > 5))
@@ -879,7 +882,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(const int channel, const int cmd)
 {
-  // TODO: Check board docs and check if it's even used...
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
@@ -899,7 +902,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableMotorCmd(const int channel)
 {
-    // TODO: Check board docs and check if it's even used...
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
@@ -918,7 +921,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableMotorCmd(const
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableServoCmd(const int channel)
 {
-  // TODO: Check board docs and check if it's even used...
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   if ((channel < 0) || (channel > 5))
     return -1;
@@ -939,7 +942,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableServoCmd(const
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlPID(const int channel, const int kp, const int kd, const int ki)
 {
-  // TODO: Check board documentation to verify that this works
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   if ( (channel < 0) || (channel > 5) )
     return -1;
@@ -964,7 +967,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlP
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlPID(const int channel, const int kp, const int kd, const int ki)
 {
-  // TODO: Check board documentation to verify that this works
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
   if ( (channel < 0) || (channel > 5) )
   return -1;
@@ -989,7 +992,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlP
 }
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorFricCompensation(const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6)
 {
-  // TODO: Check board documentation to verify that this works
+  // TODO: Check if it's even used/needed...
   unsigned char msg[255];
 
   msg[0] = COM_STX0;
@@ -1029,7 +1032,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setCustomIO(const int
   return sendCommand(msg, 10);
 }
 
-
+// Sends the actual message
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendCommand(const unsigned char* msg, const int nLen)
 {
   ssize_t retval = 0;
