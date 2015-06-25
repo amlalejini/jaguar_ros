@@ -1,21 +1,15 @@
 player:                         # General parameters for motorolla eval board interface
-    ip: 192.168.0.70            
-    port: 10001
-    serial_port: /dev/ttyS0     # Serial port name if comms are taking place over Serial.  Not used if using Network comms.
-    comm_method: network        # Either network or serial
+    network_ip: 192.168.0.70            
+    network_port: 10001
 motors:
-    drrobot_max_speed: 1.0      # Max speed for drrobot's pwm scaling garbage. 
-    drrobot_min_speed: 0.1      # Min speed for drrobot's pwm scaling garbage.
-    motor_direction: -1
-    wheel_radius: 0.0825
-    wheel_distance: 0.47
-    encoder_circle_cnt: 260.0
-    encoder_max: 32767.0
-    max_speeds:                       # Velocity parameters (necessary if PID is implemented)
-        linear_drive: 1.53 # m/s
-        angular_drive: 3.14 # rads/s
-        front_flippers: 1
-        rear_flippers: 1        
+    drive:
+        max_speed: 1.0      # 1.53 m/s
+        min_speed: 0.1      # rad/s
+        motor_direction: -1
+    flipplers:
+        max_speed: 1.0
+        min_speed: 0.1
+        motor_direction: -1      
 sensors:
     gps:
         topic: jaguar_gps
