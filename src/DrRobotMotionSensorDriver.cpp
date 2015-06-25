@@ -123,7 +123,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openNetwork()
   return 0;
   }
 
-//communication thread here
+//communication callback thread here
 void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
   while(!_stopComm)
   {
@@ -148,14 +148,16 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
     }
   else
   {
+  	// Count of consecutive failed comm attempts
     _comCnt++;
-
-    usleep(10000);              //10ms
+    // Wait for 10 ms
+    usleep(COMM_SLEEP_TM);
+    // After two seconds, announce comm loss and keep trying
+    // Updates on status every two seconds.
     if (_comCnt > COMM_LOST_TH)
     {
-      printf("Communication lost, need to close all. IP address: %s, Port: %d \n", _robotConfig->robotIP, _robotConfig->portNum);
-      _stopComm = true;
-      return;
+      printf("Communication lost, trying to re-establish. IP address: %s, Port: %d \n", _robotConfig->robotIP, _robotConfig->portNum);
+      _comCnt = 0
       }
     }
   }
@@ -220,7 +222,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
 
           if ( (ucLength + INDEX_DATA + 3) != nLen )
           {
-                  sprintf(debugtemp, "invalid packet size, discard it! whole length: %d, the data length: %d\n", nLen, ucLength);
+                  sprintf(debugtemp, "invalid packet size, discarding! Whole length: %d, Data length: %d\n", nLen, ucLength);
                   std::string temp(debugtemp);
                   debugCommMessage(temp);
 
@@ -231,7 +233,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
                    (lpComData[nLen-2]!=COM_ETX0)
              ) // check ETX indicator
           {
-            debugCommMessage("invalid packet ETX indicator, discard it!\n");
+            debugCommMessage("invalid packet ETX indicator, discarding!\n");
             return;
           }
 
@@ -239,7 +241,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
           if ( CalculateCRC(lpComData+INDEX_DES, ucLength+4)
                                                   != (BYTE)lpComData[ucLength+INDEX_DATA] )
           {
-            debugCommMessage("invalid CRC, discard it\n");
+            debugCommMessage("invalid CRC, discarding!\n");
             return;
           }
 
@@ -252,36 +254,36 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
                 switch ( lpComData[INDEX_DATA] )
                 {
                   case DATA_ACK:
-                    debugCommMessage("receive acknowledgment packet!\n");
+                    debugCommMessage("Received acknowledgment packet!\n");
                     sendAck();
-                    debugCommMessage("send acknowledge!\n");
+                    debugCommMessage("Send acknowledgement!\n");
 
                     break;
                   case DATA_PING:
-                    debugCommMessage("receive ping packet!\n");
+                    debugCommMessage("Received ping packet!\n");
 
 
                     break;
                   case DATA_URGENT_DATA:
 
-                    debugCommMessage("receive urgent packet!\n");
+                    debugCommMessage("Received urgent packet!\n");
                     sendAck();
                     break;
                   case DATA_SKIPPACKET:
-                    debugCommMessage("receive skip packet!\n");
+                    debugCommMessage("Received skip packet!\n");
                     sendAck();
                     break;
                   default:
-                    debugCommMessage("invalid packet data in system packet, discard it!\n");
+                    debugCommMessage("Invalid packet data in system packet, discarding!\n");
                     return;
                 }
               }
               break ;
             case COMTYPE_SENSOR:
-              debugCommMessage("receive Sensor data packet!\n");
+              debugCommMessage("Received Sensor data packet!\n");
               break ;
             case COMTYPE_MOTOR_SENSOR:
-              debugCommMessage("receive motor sensor data packet!\n");
+              debugCommMessage("Received motor sensor data packet!\n");
               pthread_mutex_lock(&_mutex_Data_Buf);
               for (int i = 0; i < MOTORSENSOR_NUM; i ++)
               {
@@ -356,7 +358,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
               
 
               pthread_mutex_unlock(&_mutex_Data_Buf);
-              debugCommMessage("receive custom sensor data packet!\n");
+              debugCommMessage("Received custom sensor data packet!\n");
               break;
             case COMTYPE_STANDARD_SENSOR:
               pthread_mutex_lock(&_mutex_Data_Buf);
@@ -373,11 +375,11 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
               _standardSensorData.potVol = lpComData[INDEX_DATA + 38] + lpComData[INDEX_DATA + 39] * 256;
 
               pthread_mutex_unlock(&_mutex_Data_Buf);
-              debugCommMessage("receive standard sensor data packet!\n");
+              debugCommMessage("Received standard sensor data packet!\n");
               break;
             default:
 
-               sprintf(debugtemp, "invalid packet data type(%#2X), discard it!\n", (unsigned char)lpComData[INDEX_TYPE] );
+               sprintf(debugtemp, "Invalid packet data type(%#2X), discarding!\n", (unsigned char)lpComData[INDEX_TYPE] );
               debugCommMessage(debugtemp);
               return;
 
@@ -498,7 +500,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::handleComData(const 
 void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::debugCommMessage(std::string msg)
 {
 #ifdef DEBUG_ERROR
-  printf("DrRobot Motion Sensor Driver: %s",msg.c_str());
+  printf("DEBUG DrRobot Motion/Sensor Driver: %s",msg.c_str());
 #endif
 
 }
