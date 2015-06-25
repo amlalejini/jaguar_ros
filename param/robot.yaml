@@ -6,7 +6,7 @@ motors:
         max_speed: 1.0      # 1.53 m/s
         min_speed: 0.1      # rad/s
         motor_direction: -1
-    flipplers:
+    flippers:
         max_speed: 1.0
         min_speed: 0.1
         motor_direction: -1      
