@@ -51,6 +51,9 @@ int DEFAULT_FRONT_FLIPPER_ID = 0;
 int DEFAULT_REAR_FLIPPER_ID = 1;
 int DEFAULT_PORT_DRIVE_ID = 3;
 int DEFAULT_STARTBOARD_DRIVE_ID = 4;
+// Sensor Constants
+//   - Motion board sensor
+int DEFAULT_MOTION_BOARD_HEAT_SENSOR_CNT = 0;
 ////////////////////////////////////////////////////////
 
 class JaguarPlayer {
@@ -101,6 +104,7 @@ private:
     int flipper_motor_direction;
     map<string, int> motor_ids;
     // Sensor data variables
+    int motion_board_heat_sensor_cnt;
     struct MotorSensorData motor_sensor_data; // documented in DrRobotMotionSensorDriver.hpp
     //struct RangeSensorData rangeSensorData_;
     struct PowerSensorData power_sensor_data;
@@ -144,11 +148,13 @@ JaguarPlayer::JaguarPlayer() {
     node_handle.param<double>("motors/flippers/max_speed", flipper_max_speed, DEFAULT_FLIPPER_MOTOR_MAX_SPEED);
     node_handle.param<double>("motors/flippers/min_speed", flipper_min_speed, DEFAULT_FLIPPER_MOTOR_MIN_SPEED);
     node_handle.param<int>("motors/flippers/motor_direction", flipper_motor_direction, DEFAULT_FLIPPER_MOTOR_DIRECTION);
-    //  - IDs
+    //   - IDs
     node_handle.param<int>("motors/ids/front_flipper", motor_ids["FRONT_FLIPPER"], DEFAULT_FRONT_FLIPPER_ID);
     node_handle.param<int>("motors/ids/rear_flipper", motor_ids["REAR_FLIPPER"], DEFAULT_REAR_FLIPPER_ID);
     node_handle.param<int>("motors/ids/port_drive", motor_ids["PORT_DRIVE"], DEFAULT_PORT_DRIVE_ID);
     node_handle.param<int>("motors/ids/starboard_drive", motor_ids["STARBOARD_DRIVE"], DEFAULT_STARTBOARD_DRIVE_ID);
+    // - Load sensor constants
+    node_handle.param<int>("sensors/motion_board/heat_sensor_cnt", motion_board_heat_sensor_cnt, DEFAULT_MOTION_BOARD_HEAT_SENSOR_CNT);
     ///////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////
@@ -172,18 +178,19 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////
     jaguar_driver = new DrRobotMotionSensorDriver();
     jaguar_driver->setDrRobotMotionDriverConfig(&jaguar_driver_config);
-
+    
     ///////////////////////////////////////////////////////
     // Robot startup
     ///////////////////////////////////////////////////////    
     // - Connect to robot
     connect();
-
+    
     ///////////////////////////////////////////////////////
     // Setup ROS Publishers
     ///////////////////////////////////////////////////////
     motor_info_pub = node_handle.advertise<jaguar_ros::JaguarMotorSensorData>(motor_sensors_topic, 1);
     motion_board_info_pub = node_handle.advertise<jaguar_ros::JaguarMotionBoardInfo>(motion_board_info_topic, 1);
+    
     ///////////////////////////////////////////////////////
     // Setup ROS Subscribers
     ///////////////////////////////////////////////////////
@@ -192,7 +199,6 @@ JaguarPlayer::JaguarPlayer() {
     rear_flipper_cmds_sub = node_handle.subscribe<std_msgs::Float32>(rear_flipper_ctrl_topic, 1000, boost::bind(&JaguarPlayer::rearFlipperCallback, this, _1));
     headlight_cmds_sub = node_handle.subscribe<std_msgs::Bool>(headlight_ctrl_topic, 1000, boost::bind(&JaguarPlayer::headlightCallback, this, _1));
 }
-
 
 JaguarPlayer::~JaguarPlayer() {
     /*
@@ -350,22 +356,25 @@ void JaguarPlayer::update() {
         jaguar_ros::JaguarMotionBoardInfo motion_board_info_msg;
         motion_board_info_msg.header.stamp = motion_board_time;
         // TODO: make sensor_0 and sensor_1 into array in message
-        motion_board_info_msg.heat_sensor_0 = standard_sensor_data.overHeatSensorData[0];
-        motion_board_info_msg.heat_sensor_1 = standard_sensor_data.overHeatSensorData[1];
+        motion_board_info_msg.heat_sensors.resize(motion_board_heat_sensor_cnt);
+        for (int i = 0; i < motion_board_heat_sensor_cnt; i++) {
+            motion_board_info_msg.heat_sensors[i] = standard_sensor_data.overHeatSensorData[i];
+        }
+        //motion_board_info_msg.heat_sensor_0 = standard_sensor_data.overHeatSensorData[0];
+        //motion_board_info_msg.heat_sensor_1 = standard_sensor_data.overHeatSensorData[1];
         motion_board_info_msg.board_power_vol = (double)standard_sensor_data.boardPowerVol * 9.0 / 4095.0;  // Data comes in raw (0 - 4095), convert to voltage (9volt max) (copied from original drrobot_player)
         motion_board_info_msg.board_ref_vol = (double)standard_sensor_data.refVol / 4095.0 * 6.0;           // Convert to voltage (copied from original drrobot_player)
         motion_board_info_msg.motor_power_vol = (double)standard_sensor_data.motorPowerVol * 34.498 / 4095.0;   // Convert to voltage (copied from original drrobot_player)
         // publish motion board info message
         motion_board_info_pub.publish(motion_board_info_msg);
-    }
-    
+        //TODO: Figure out how to get battery voltage
+    }   
 }
 
 void JaguarPlayer::run() {
     /*
       Main Jaguar Player run loop.
     */
-
     ros::Rate rate(10); // Create target rate for main loop to run at
     while (ros::ok()) {
         update();
@@ -378,12 +387,9 @@ int main(int argc, char **argv) {
 
     // Initialize ROS
     ros::init(argc, argv, "jaguar_player");
-
     // Create jaguar_player node
     JaguarPlayer jag_player;
     // Run jaguar_player node
     jag_player.run();
-
     return 0;
-
 }

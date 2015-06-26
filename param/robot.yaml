@@ -26,6 +26,7 @@ sensors:
         topic: jaguar_motor_sensors
     motion_board:
         topic: jaguar_motion_board_info
+        heat_sensor_cnt: 2
 robot_control_topics:
     drive_control: cmd_vel
     front_flipper_control: front_flipper_cmds
