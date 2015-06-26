@@ -363,7 +363,9 @@ void JaguarPlayer::update() {
         motion_board_info_msg.heat_sensors.resize(motion_board_heat_sensor_cnt);
         for (int i = 0; i < motion_board_heat_sensor_cnt; i++) {
             // convert heat sensor raw reading to celcius (math is documented in WiRobot SDK API Reference Manual for drrobot Jaguar)
-            motion_board_info_msg.heat_sensors[i] = 100 - ((standard_sensor_data.overHeatSensorData[i] - 980) / 11.6);
+            int ival = standard_sensor_data.overHeatSensorData[i];
+            //motion_board_info_msg.heat_sensors[i] = 100 - ((ival - 980) / 11.6);
+            motion_board_info_msg.heat_sensors[i] = (ival - 1256) / 34.8;
         }
         motion_board_info_msg.board_power_vol = (double)standard_sensor_data.boardPowerVol * 9.0 / 4095.0;  // Data comes in raw (0 - 4095), convert to voltage (9volt max) (copied from original drrobot_player)
         motion_board_info_msg.board_ref_vol = (double)standard_sensor_data.refVol / 4095.0 * 6.0;           // Convert to voltage (copied from original drrobot_player)
