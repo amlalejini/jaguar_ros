@@ -305,6 +305,10 @@ void JaguarPlayer::update() {
         // Get Motion board sensor information
         jaguar_driver->readStandardSensorData(&standard_sensor_data);
         ros::Time motion_board_time = ros::Time::now();
+        // Try to get Power sensor data
+        jaguar_driver->readPowerSensorData(&power_sensor_data);
+        ros::Time power_sensor_time = ros::Time::now();
+        printf("Battery Info: [B1Vol: %d], [B1Temp: %d]\n", power_sensor_data.battery1Vol, power_sensor_data.battery1Thermo);
         ///////////////////////////////////////////////////////////////////
         // Motor sensor numbers: (looking towards front of robot)
         // - 0: front flipper
