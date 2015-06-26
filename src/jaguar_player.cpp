@@ -306,9 +306,9 @@ void JaguarPlayer::update() {
         jaguar_driver->readStandardSensorData(&standard_sensor_data);
         ros::Time motion_board_time = ros::Time::now();
         // Try to get Power sensor data
-        jaguar_driver->readPowerSensorData(&power_sensor_data);
-        ros::Time power_sensor_time = ros::Time::now();
-        printf("Battery Info: [B1Vol: %d], [B1Temp: %d]\n", power_sensor_data.battery1Vol, power_sensor_data.battery1Thermo);
+        // jaguar_driver->readPowerSensorData(&power_sensor_data);
+        // ros::Time power_sensor_time = ros::Time::now();
+        // printf("Battery Info: [B1Vol: %d], [B1Temp: %d]\n", power_sensor_data.battery1Vol, power_sensor_data.battery1Thermo);
         ///////////////////////////////////////////////////////////////////
         // Motor sensor numbers: (looking towards front of robot)
         // - 0: front flipper
@@ -359,19 +359,19 @@ void JaguarPlayer::update() {
         ///////////////////////////////////////////////////////////////////
         jaguar_ros::JaguarMotionBoardInfo motion_board_info_msg;
         motion_board_info_msg.header.stamp = motion_board_time;
-        // TODO: make sensor_0 and sensor_1 into array in message
+
         motion_board_info_msg.heat_sensors.resize(motion_board_heat_sensor_cnt);
         for (int i = 0; i < motion_board_heat_sensor_cnt; i++) {
-            motion_board_info_msg.heat_sensors[i] = standard_sensor_data.overHeatSensorData[i];
+            // convert heat sensor raw reading to celcius (math is documented in WiRobot SDK API Reference Manual for drrobot Jaguar)
+            motion_board_info_msg.heat_sensors[i] = 100 - ((standard_sensor_data.overHeatSensorData[i] - 980) / 11.6);
         }
-        //motion_board_info_msg.heat_sensor_0 = standard_sensor_data.overHeatSensorData[0];
-        //motion_board_info_msg.heat_sensor_1 = standard_sensor_data.overHeatSensorData[1];
         motion_board_info_msg.board_power_vol = (double)standard_sensor_data.boardPowerVol * 9.0 / 4095.0;  // Data comes in raw (0 - 4095), convert to voltage (9volt max) (copied from original drrobot_player)
         motion_board_info_msg.board_ref_vol = (double)standard_sensor_data.refVol / 4095.0 * 6.0;           // Convert to voltage (copied from original drrobot_player)
         motion_board_info_msg.motor_power_vol = (double)standard_sensor_data.motorPowerVol * 34.498 / 4095.0;   // Convert to voltage (copied from original drrobot_player)
         // publish motion board info message
         motion_board_info_pub.publish(motion_board_info_msg);
         //TODO: Figure out how to get battery voltage
+        // Custom sensor data math: Sensor output voltage = (ival) * 3.0 / 4095 (V)
     }   
 }
 

@@ -72,7 +72,7 @@ class IMU_Reporter(object):
         '''
          # Use regular expressions to extract complete message
         # message format: $val,val,val,val,val,val,val,val,val,val#\n
-        hit = re.search(r"\$-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*#", data)
+        hit = re.search(r"\$-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*,-?[0-9]*#", data)
         if not hit:
             # if there are no hits, return None
             return None
@@ -112,10 +112,6 @@ class IMU_Reporter(object):
                     #self.mag_fp.write(str(magnetonx) + "," + str(magnetony) + "," + str(magnetonz) + "\n")
 
                 # Build message 
-                # can use current_mag reading here
-                # TODO: RYAN FILL OUT ROS MESSAGE FROM RAW IMU DATA
-                # self.accel_fp.write("%s,%s,%s\n" % (str(accelx), str(accely), str(accelz)))
-                # self.gyro_fp.write("%s,%s,%s\n" % (str(gyrox), str(gyroy), str(gyroz)))
                 msg = Imu()
                 msg.header = Header(stamp = rospy.Time.now(), frame_id = "imu")
                 msg.linear_acceleration = Vector3(accelx, accely, accelz)
