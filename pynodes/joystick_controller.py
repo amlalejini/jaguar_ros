@@ -83,10 +83,10 @@ class Joystick_Controller(object):
         self.joy_topic = rospy.get_param("controller_settings/joystick_topic", DEFAULT_JOY_TOPIC)
 
         # Create necessary ROS publishers
-        self.drive_cmds_pub = rospy.Publisher(self.drive_topic, Twist, queue_size = 10)
-        self.front_flipper_cmds_pub = rospy.Publisher(self.front_flipper_topic, Float32, queue_size = 10)
-        self.rear_flipper_cmds_pub = rospy.Publisher(self.rear_flipper_topic, Float32, queue_size = 10)
-        self.headlight_cmds_pub = rospy.Publisher(self.headlight_topic, Bool, queue_size = 10)
+        self.drive_cmds_pub = rospy.Publisher(self.drive_topic, Twist)#, queue_size = 10)
+        self.front_flipper_cmds_pub = rospy.Publisher(self.front_flipper_topic, Float32)#, queue_size = 10)
+        self.rear_flipper_cmds_pub = rospy.Publisher(self.rear_flipper_topic, Float32)#, queue_size = 10)
+        self.headlight_cmds_pub = rospy.Publisher(self.headlight_topic, Bool)#, queue_size = 10)
 
         # Subscribe to controller data
         rospy.Subscriber(self.joy_topic, Joy, self.joy_callback)

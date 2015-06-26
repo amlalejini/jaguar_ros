@@ -1,0 +1,6 @@
+<launch>
+    <rosparam command="load" file="$(find jaguar_ros)/param/robot.yaml" />
+    
+    <node name="jaguar_player" pkg="jaguar_ros" type="jaguar_player" output="screen"/>
+    
+</launch>
