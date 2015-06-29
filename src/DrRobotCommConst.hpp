@@ -81,9 +81,6 @@
   // Flag for interaction with IO ports
   const unsigned char CUSTOMIO = 22;
 
-  // TODO: Locate usage.
-  const unsigned char POWERCTRL = 22;
-
   // ID's for pid parameters
   const unsigned char KP_ID = 1;
   const unsigned char KD_ID = 2;
@@ -93,9 +90,6 @@
   const int  COMM_LOST_TH  = 200; // 10ms * 200 = 2s
   // Time to wait between checks for message
   const int  COMM_SLEEP_TM =  10000;   //10ms
-
-  // TODO: Find usage instance.
-  const int SDK_COM_DATA_MIN_LENGTH = 9;
 
   // Default connection port
   #define DEFAULT_PORT 10001
@@ -108,7 +102,8 @@
   // Index of msg where destination flag is located.
   #define INDEX_DES               2
 
-  // TODO: Find usage.
+  // Seems unused...
+  // Index three is always zero anyway...
   #define INDEX_SN                3
 
   // Index of msg where msg type is located.

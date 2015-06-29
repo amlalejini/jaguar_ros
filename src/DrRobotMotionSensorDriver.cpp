@@ -165,7 +165,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
   return;
 }
 
-// TODO: Decipher this method
+// Generates and returns a CRC value
 unsigned char DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::CalculateCRC(const unsigned char *lpBuffer, const int nSize)
 {
   unsigned char shift_reg, sr_lsb, data_bit, v;
@@ -205,190 +205,208 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
 {
   char debugtemp[512] ;
   int temp;
-  if ( (lpComData[INDEX_STX0] != COM_STX0)||
-                   (lpComData[INDEX_STX1] != COM_STX1)
-             )
-          {
+  // Double check valid headers
+  if ( (lpComData[INDEX_STX0] != COM_STX0) || (lpComData[INDEX_STX1] != COM_STX1))
+  {
 
-                  debugCommMessage("invalid packet header ID, discard it!\n");
+    debugCommMessage("invalid packet header ID, discard it!\n");
 
-                  return;
-          }
-          else if ( lpComData[INDEX_DES] != COM_TYPE_PC )
-          {
-            debugCommMessage("invalid packet destination id PC, discard it!\n");
-            return;
-          }
+    return;
+    }
+  else if ( lpComData[INDEX_DES] != COM_TYPE_PC )
+  {
+    debugCommMessage("invalid packet destination id PC, discard it!\n");
+    return;
+    }
 
-          BYTE ucLength = (BYTE)lpComData[INDEX_LENGTH];
+  BYTE ucLength = (BYTE)lpComData[INDEX_LENGTH];
 
-          if ( (ucLength + INDEX_DATA + 3) != nLen )
-          {
-                  sprintf(debugtemp, "invalid packet size, discarding! Whole length: %d, Data length: %d\n", nLen, ucLength);
-                  std::string temp(debugtemp);
-                  debugCommMessage(temp);
+  if ( (ucLength + INDEX_DATA + 3) != nLen )
+  {
+    sprintf(debugtemp, "invalid packet size, discarding! Whole length: %d, Data length: %d\n", nLen, ucLength);
+    std::string temp(debugtemp);
+    debugCommMessage(temp);
 
-                  return;
-          }
+    return;
+    }
 
-          if ( (lpComData[nLen-1]!=COM_ETX1)||
-                   (lpComData[nLen-2]!=COM_ETX0)
-             ) // check ETX indicator
-          {
-            debugCommMessage("invalid packet ETX indicator, discarding!\n");
-            return;
-          }
+  // check ETX indicator
+  if ( (lpComData[nLen-1]!=COM_ETX1) || (lpComData[nLen-2]!=COM_ETX0))
+  {
+    debugCommMessage("invalid packet ETX indicator, discarding!\n");
+    return;
+    }
 
-          // verify CRC correction
-          if ( CalculateCRC(lpComData+INDEX_DES, ucLength+4)
-                                                  != (BYTE)lpComData[ucLength+INDEX_DATA] )
-          {
-            debugCommMessage("invalid CRC, discarding!\n");
-            return;
-          }
+  // verify CRC correction
+  if ( CalculateCRC(lpComData+INDEX_DES, ucLength+4) != (BYTE)lpComData[ucLength+INDEX_DATA] )
+  {
+    debugCommMessage("invalid CRC, discarding!\n");
+    return;
+    }
 
-          // all right, until this point, all format data have been checked okay!
-          //
-          switch ( (unsigned char)lpComData[INDEX_TYPE] )
-          {
-            case COMTYPE_SYSTEM:
-              {
-                switch ( lpComData[INDEX_DATA] )
-                {
-                  case DATA_ACK:
-                    debugCommMessage("Received acknowledgment packet!\n");
-                    sendAck();
-                    debugCommMessage("Send acknowledgement!\n");
+  // Data looks good so far... Begin processing based on msg type
+  switch ( (unsigned char)lpComData[INDEX_TYPE] )
 
-                    break;
-                  case DATA_PING:
-                    debugCommMessage("Received ping packet!\n");
+    case COMTYPE_SYSTEM:
+    
+      switch ( lpComData[INDEX_DATA] )
+  
+        case DATA_ACK:
 
+          debugCommMessage("Received acknowledgment packet!\n");
+          sendAck();
+          debugCommMessage("Send acknowledgement!\n");
+          break;
 
-                    break;
-                  case DATA_URGENT_DATA:
+        case DATA_PING:
 
-                    debugCommMessage("Received urgent packet!\n");
-                    sendAck();
-                    break;
-                  case DATA_SKIPPACKET:
-                    debugCommMessage("Received skip packet!\n");
-                    sendAck();
-                    break;
-                  default:
-                    debugCommMessage("Invalid packet data in system packet, discarding!\n");
-                    return;
-                }
-              }
-              break ;
-            case COMTYPE_SENSOR:
-              debugCommMessage("Received Sensor data packet!\n");
-              break ;
-            case COMTYPE_MOTOR_SENSOR:
-              debugCommMessage("Received motor sensor data packet!\n");
-              pthread_mutex_lock(&_mutex_Data_Buf);
-              for (int i = 0; i < MOTORSENSOR_NUM; i ++)
-              {
-                _motorSensorData.motorSensorPot[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
-              }
-              
-              for (int i = 0; i < MOTORSENSOR_NUM; i++)
-              {
-                _motorSensorData.motorSensorPWM[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
-              }
-              
+          debugCommMessage("Received ping packet!\n");
+          break;
 
-              for (int i = 0; i < MOTORSENSOR_NUM; i ++)
-              {
-                _motorSensorData.motorSensorCurrent[i] = lpComData[INDEX_DATA + 12 + 2 * i] + lpComData[INDEX_DATA + 12 + 2 * i + 1] * 256;
-              }
-              _motorSensorData.motorSensorEncoderPos[0] = lpComData[INDEX_DATA + 24] + lpComData[INDEX_DATA + 25] * 256;
-              _motorSensorData.motorSensorEncoderVel[0] = lpComData[INDEX_DATA + 26] + lpComData[INDEX_DATA + 27] * 256;
-              _motorSensorData.motorSensorEncoderPos[1] = lpComData[INDEX_DATA + 28] + lpComData[INDEX_DATA + 29] * 256;
-              _motorSensorData.motorSensorEncoderVel[1] = lpComData[INDEX_DATA + 30] + lpComData[INDEX_DATA + 31] * 256;
-              if (lpComData[INDEX_DATA + 32] & 0x01)
-              {
-                _motorSensorData.motorSensorEncoderDir[0] = 1;
-              }
-              else
-              {
-                _motorSensorData.motorSensorEncoderDir[0] = -1;
-              }
-              if (lpComData[INDEX_DATA + 32] & 0x02)
-              {
-                _motorSensorData.motorSensorEncoderDir[1] = 1;
-              }
-              else
-              {
-                _motorSensorData.motorSensorEncoderDir[1] = -1;
-              }
-              pthread_mutex_unlock(&_mutex_Data_Buf);
-              break;
-            case COMTYPE_CUSTOM_SENSOR:
-              pthread_mutex_lock(&_mutex_Data_Buf);
-              for (int i = 0; i < CUSTOMSENSOR_NUM ; i ++)
-              {
-                _customSensorData.customADData [i]  = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
-              }
+        case DATA_URGENT_DATA:
 
-              _customSensorData.customIO = lpComData[INDEX_DATA + 16];
+          debugCommMessage("Received urgent packet!\n");
+          sendAck();
+          break;
 
-              _motorSensorData.motorSensorEncoderPos[3] = lpComData[INDEX_DATA + 17] + lpComData[INDEX_DATA + 18] * 256;
-              _motorSensorData.motorSensorEncoderVel[3] = lpComData[INDEX_DATA + 19] + lpComData[INDEX_DATA + 20] * 256;
+        case DATA_SKIPPACKET:
 
-              temp = lpComData[INDEX_DATA + 21] + lpComData[INDEX_DATA + 22] * 256;
-              if (temp & 0x01)
-              {
-                _motorSensorData.motorSensorEncoderDir[3] = 1;
-              }
-              else
-              {
-                _motorSensorData.motorSensorEncoderDir[3] = 0;
-              }
-              _motorSensorData.motorSensorEncoderPos[4] = lpComData[INDEX_DATA + 23] + lpComData[INDEX_DATA + 24] * 256;
-              _motorSensorData.motorSensorEncoderVel[4] = lpComData[INDEX_DATA + 25] + lpComData[INDEX_DATA + 26] * 256;
+          debugCommMessage("Received skip packet!\n");
+          sendAck();
+          break;
 
-              temp = lpComData[INDEX_DATA + 27] + lpComData[INDEX_DATA + 28] * 256;
-              if (temp & 0x01)
-              {
-                _motorSensorData.motorSensorEncoderDir[4] = 1;
-              }
-              else
-              {
-                _motorSensorData.motorSensorEncoderDir[4] = 0;
-              }
-              
+        default:
 
-              pthread_mutex_unlock(&_mutex_Data_Buf);
-              debugCommMessage("Received custom sensor data packet!\n");
-              break;
-            case COMTYPE_STANDARD_SENSOR:
-              pthread_mutex_lock(&_mutex_Data_Buf);
-              for (int i = 0; i < 4 ; i ++)
-              {
-                _standardSensorData.humanSensorData[i] = lpComData[INDEX_DATA + 6 + 2*i] + lpComData[INDEX_DATA + 6 + 2 * i + 1] * 256;
-              }
-              _standardSensorData.overHeatSensorData[0] = lpComData[INDEX_DATA + 18] + lpComData[INDEX_DATA + 19] * 256;
-              _standardSensorData.overHeatSensorData[1] = lpComData[INDEX_DATA + 20] + lpComData[INDEX_DATA + 21] * 256;
-              _standardSensorData.boardPowerVol = lpComData[INDEX_DATA + 30] + lpComData[INDEX_DATA + 31] * 256;
-              _standardSensorData.motorPowerVol = lpComData[INDEX_DATA + 32] + lpComData[INDEX_DATA + 33] * 256;
-              _standardSensorData.servoPowerVol = lpComData[INDEX_DATA + 34] + lpComData[INDEX_DATA + 35] * 256;
-              _standardSensorData.refVol = lpComData[INDEX_DATA + 36] + lpComData[INDEX_DATA + 37] * 256;
-              _standardSensorData.potVol = lpComData[INDEX_DATA + 38] + lpComData[INDEX_DATA + 39] * 256;
+          debugCommMessage("Invalid packet data in system packet, discarding!\n");
+          return; 
+      break;
 
-              pthread_mutex_unlock(&_mutex_Data_Buf);
-              debugCommMessage("Received standard sensor data packet!\n");
-              break;
-            default:
+    case COMTYPE_SENSOR:
 
-               sprintf(debugtemp, "Invalid packet data type(%#2X), discarding!\n", (unsigned char)lpComData[INDEX_TYPE] );
-              debugCommMessage(debugtemp);
-              return;
+      debugCommMessage("Received Sensor data packet!\n");
+      break;
 
+    case COMTYPE_MOTOR_SENSOR:
+
+      debugCommMessage("Received motor sensor data packet!\n");
+      pthread_mutex_lock(&_mutex_Data_Buf);
+
+      for (int i = 0; i < MOTORSENSOR_NUM; i ++)
+      {
+        _motorSensorData.motorSensorPot[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
+        _motorSensorData.motorSensorPWM[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
+        _motorSensorData.motorSensorCurrent[i] = lpComData[INDEX_DATA + 12 + 2 * i] + lpComData[INDEX_DATA + 12 + 2 * i + 1] * 256;
+        }
+      /* Redundant BS!!!
+      for (int i = 0; i < MOTORSENSOR_NUM; i++)
+      {
+        _motorSensorData.motorSensorPWM[i] = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
+        }
+      for (int i = 0; i < MOTORSENSOR_NUM; i ++)
+      {
+        _motorSensorData.motorSensorCurrent[i] = lpComData[INDEX_DATA + 12 + 2 * i] + lpComData[INDEX_DATA + 12 + 2 * i + 1] * 256;
+        }
+      */
+      // Pulls encoder data from packet
+      _motorSensorData.motorSensorEncoderPos[0] = lpComData[INDEX_DATA + 24] + lpComData[INDEX_DATA + 25] * 256;
+      _motorSensorData.motorSensorEncoderVel[0] = lpComData[INDEX_DATA + 26] + lpComData[INDEX_DATA + 27] * 256;
+      _motorSensorData.motorSensorEncoderPos[1] = lpComData[INDEX_DATA + 28] + lpComData[INDEX_DATA + 29] * 256;
+      _motorSensorData.motorSensorEncoderVel[1] = lpComData[INDEX_DATA + 30] + lpComData[INDEX_DATA + 31] * 256;
+
+      if (lpComData[INDEX_DATA + 32] & 0x01)
+      {
+        // Decodes flag for moter dir of first motor sensor
+        _motorSensorData.motorSensorEncoderDir[0] = 1;
+        }
+      else
+      {
+        _motorSensorData.motorSensorEncoderDir[0] = -1;
         }
 
+      if (lpComData[INDEX_DATA + 32] & 0x02)
+      {
+        // Decodes flag for moter dir of first motor sensor
+        _motorSensorData.motorSensorEncoderDir[1] = 1;
+        }
+      else
+      {
+        _motorSensorData.motorSensorEncoderDir[1] = -1;
+        }
 
-        return;
+      pthread_mutex_unlock(&_mutex_Data_Buf);
+      break;
+
+    case COMTYPE_CUSTOM_SENSOR:
+
+      pthread_mutex_lock(&_mutex_Data_Buf);
+
+      for (int i = 0; i < CUSTOMSENSOR_NUM ; i ++)
+      {
+        _customSensorData.customADData [i]  = lpComData[INDEX_DATA + 2 * i] + lpComData[INDEX_DATA + 2 * i + 1] * 256;
+        }
+
+      _customSensorData.customIO = lpComData[INDEX_DATA + 16];
+      // Loads encoder 3 data
+      _motorSensorData.motorSensorEncoderPos[3] = lpComData[INDEX_DATA + 17] + lpComData[INDEX_DATA + 18] * 256;
+      _motorSensorData.motorSensorEncoderVel[3] = lpComData[INDEX_DATA + 19] + lpComData[INDEX_DATA + 20] * 256;
+
+      temp = lpComData[INDEX_DATA + 21] + lpComData[INDEX_DATA + 22] * 256;
+      if (temp & 0x01)
+      {
+        _motorSensorData.motorSensorEncoderDir[3] = 1;
+        }
+      else
+      {
+        _motorSensorData.motorSensorEncoderDir[3] = 0;
+        }
+      // Loads encoder 4 data
+      _motorSensorData.motorSensorEncoderPos[4] = lpComData[INDEX_DATA + 23] + lpComData[INDEX_DATA + 24] * 256;
+      _motorSensorData.motorSensorEncoderVel[4] = lpComData[INDEX_DATA + 25] + lpComData[INDEX_DATA + 26] * 256;
+
+      temp = lpComData[INDEX_DATA + 27] + lpComData[INDEX_DATA + 28] * 256;
+      if (temp & 0x01)
+      {
+        _motorSensorData.motorSensorEncoderDir[4] = 1;
+        }
+      else
+      {
+        _motorSensorData.motorSensorEncoderDir[4] = 0;
+        }
+      
+
+      pthread_mutex_unlock(&_mutex_Data_Buf);
+      debugCommMessage("Received custom sensor data packet!\n");
+      break;
+
+    case COMTYPE_STANDARD_SENSOR:
+
+      pthread_mutex_lock(&_mutex_Data_Buf);
+      // Loads human sensor data
+      // TODO: Does the Jaguar even have these!? If not, remove.
+      for (int i = 0; i < 4 ; i ++)
+      {
+        _standardSensorData.humanSensorData[i] = lpComData[INDEX_DATA + 6 + 2*i] + lpComData[INDEX_DATA + 6 + 2 * i + 1] * 256;
+      }
+      
+      _standardSensorData.overHeatSensorData[0] = lpComData[INDEX_DATA + 18] + lpComData[INDEX_DATA + 19] * 256;
+      _standardSensorData.overHeatSensorData[1] = lpComData[INDEX_DATA + 20] + lpComData[INDEX_DATA + 21] * 256;
+      _standardSensorData.boardPowerVol = lpComData[INDEX_DATA + 30] + lpComData[INDEX_DATA + 31] * 256;
+      _standardSensorData.motorPowerVol = lpComData[INDEX_DATA + 32] + lpComData[INDEX_DATA + 33] * 256;
+      _standardSensorData.servoPowerVol = lpComData[INDEX_DATA + 34] + lpComData[INDEX_DATA + 35] * 256;
+      _standardSensorData.refVol = lpComData[INDEX_DATA + 36] + lpComData[INDEX_DATA + 37] * 256;
+      _standardSensorData.potVol = lpComData[INDEX_DATA + 38] + lpComData[INDEX_DATA + 39] * 256;
+
+      pthread_mutex_unlock(&_mutex_Data_Buf);
+      debugCommMessage("Received standard sensor data packet!\n");
+      break;
+
+    default:
+
+       sprintf(debugtemp, "Invalid packet data type(%#2X), discarding!\n", (unsigned char)lpComData[INDEX_TYPE] );
+      debugCommMessage(debugtemp);
+      return;
+
+  return;
 }
 
 void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::handleComData(const unsigned char *data, const int nLen)
@@ -402,9 +420,11 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::handleComData(const 
     nStartIndex = 0;
     nPacketIndex = 2;
 
-
+    // If the buffer has room
     if (_nMsgLen + nLen < MAXBUFLEN){
+      // Copies the new data onto the end of the dataBuf
       memcpy(_dataBuf + _nMsgLen, data, nLen);
+      // New length of valid data
       _nMsgLen += nLen;
     }
     else{
@@ -414,17 +434,18 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::handleComData(const 
     }
 
 
-    //suppose the first 2 bytes are MG_HEAD1,2
-    //otherwise bytes will removed from the beginning until MSG_HEAD occurs
+    // Checks if the first 2 bytes are MG_HEAD1,2
+    // keep incrementing bytes until MSG_HEAD occurs
     for(i = 0; i < _nMsgLen -1; i++){
       if ( (_dataBuf[i] != msgHeader[0]) || ( (_dataBuf[i + 1] != msgHeader[1]) && (_nMsgLen - i >= 2 )) ){
         //do nothing
       }
       else if( (_nMsgLen - i == 1) || (_nMsgLen - i == 2)){
-        return;  // just got a header!!!
+        break;  // All junk/corrupted headers!  Continue on without a complete packet...
+        //return;  // Seems like it should be a break: the next if tree handles this case...
       }
       else{
-        //here got the header
+        // Found uncorrupted header
         nPacketIndex = i + 2;
         nStartIndex = i;
         break;
@@ -448,20 +469,24 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::handleComData(const 
       // look for the MSG_TAIL
       if ( (_dataBuf[nPacketIndex] == msgTail[0]) && (nPacketIndex + 1 < _nMsgLen) && (_dataBuf[nPacketIndex + 1] == msgTail[1])){
         // find a data package
+        // Memory address of start of packet data
         unProcessedPacket = _dataBuf + nStartIndex;
+        // Byte lenght of packet data
         nUnProcessedPacketLen = nPacketIndex + 2 - nStartIndex;
+        // Increment past the tail
         nPacketIndex += 2;
+        // Send packet off for processing
         DealWithPacket(unProcessedPacket,nUnProcessedPacketLen);
         if (nPacketIndex == _nMsgLen){
-          // the while data msg is processed, empty the buffer
+          // Hit the end of valid data; everything left is junk; erase it
           _nMsgLen = 0;
           return;
         }
         else{
-          // in this case, packetIndex should be less than nMsgLen
-          //look for start of packet indicator MSGHead
+          // Still unchecked data in buffer; Find the next valid head.
           while(nPacketIndex < _nMsgLen){
             if ( (_dataBuf[nPacketIndex] == msgHeader[0]) && (_dataBuf[nPacketIndex + 1] == msgHeader[1]) && (nPacketIndex + 1 < _nMsgLen)){
+              // Found the next head
               nStartIndex = nPacketIndex;
               break;
             }
@@ -470,26 +495,31 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::handleComData(const 
             }
           }
           if (nPacketIndex < _nMsgLen){
-            // find another header
+            // Found another head in the while loop; pass.
           }
           else if(_dataBuf[_nMsgLen - 1] == msgHeader[0]){
+          	// Found start of next header; move to front, reset data length
             _dataBuf[0] = msgHeader[0];
             _nMsgLen = 1;
             return;
           }
           else{
+          	// No header found; rest of data is garbage to erase
             _nMsgLen = 0;
             return;
           }
         }
       }
+      // No tail, continue searching.
       else{
         nPacketIndex++;
       }
 
     }
+    // Exceeded valid data bounds with no tail found
     if (nPacketIndex >= _nMsgLen -1){
-      // did not find a tail
+      // Still has valid data with no end in buffer
+      // So move to front and reset data length, removing junk before header
       if (nStartIndex != 0){
         memcpy(_dataBuf,_dataBuf + nStartIndex,_nMsgLen - nStartIndex);
       }
