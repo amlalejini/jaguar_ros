@@ -1,0 +1,17 @@
+“Uint32[] customADData” will publish extended 8 A/D channels value.
+By default AD2~ Ad7 will be connected with motor temperature sensors on Jaguar V4 robot.
+AD0- board 5V voltage
+AD1 – motor power(battery power) voltage
+AD2 – left rear motor temperature
+AD3 - right rear motor temperature
+AD4 – left front motor temperature
+AD5 – front flip motor temperature
+AD6 – right front motor temperature
+AD7 – rear flip motor temperature
+ 
+How to translate the raw A/D value to temperature you could referee the function Trans2Temperature() in C# code in Jaguar V4 control program.(you could find the source code of Jaguar V4 control program in your installation folder on your PC)
+
+ -- From Drrobot Support
+
+
+Also note, when looking onward at the headlights, right is port side.

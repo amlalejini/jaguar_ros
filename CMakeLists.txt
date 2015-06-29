@@ -52,6 +52,8 @@ add_message_files(
    JaguarMotorSensorData.msg
    ServoCmd.msg
    JaguarMotionBoardInfo.msg
+   JaguarBatteryInfo.msg
+   JaguarMotorTemps.msg
 )
 
 ## Generate services in the 'srv' folder

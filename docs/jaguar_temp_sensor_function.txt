@@ -1,0 +1,57 @@
+THE BELOW CODE IS PULLED STRAIGHT FROM DRROBOT'S C# WINDOWS SOFTWARE CODE.  
+
+
+//for temperature sensor
+        private double[] resTable = new double[25]{114660,84510,62927,47077,35563,27119,20860,16204,12683,10000,
+                        7942,6327,5074,4103,3336,2724,2237,1846,1530,1275,1068,899.3,760.7,645.2,549.4};
+        private double[] tempTable = new double[25] { -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100 };
+        private const double FULLAD = 4095;
+
+private double Trans2Temperature(double adValue)
+        {
+            //for new temperature sensor
+            double tempM = 0;
+            double k = (adValue / FULLAD);
+            double resValue = 0;
+            if (k != 1)
+            {
+                resValue = 10000 * k/(1- k);
+            }
+            else
+            {
+                resValue = resTable[0];
+            }
+
+
+            int index = -1;
+            if (resValue >= resTable[0])       //too lower
+            {
+                tempM = -20;
+            }
+            else if (resValue <= resTable[24])
+            {
+                tempM = 100;
+            }
+            else
+            {
+                for (int i = 0; i < 24; i++)
+                {
+                    if ((resValue <= resTable[i]) && (resValue >= resTable[i + 1]))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                if (index >= 0)
+                {
+                    tempM = tempTable[index] + (resValue - resTable[index]) / (resTable[index + 1] - resTable[index]) * (tempTable[index + 1] - tempTable[index]);
+                }
+                else
+                {
+                    tempM = 0;
+                }
+
+            }
+
+            return tempM;
+        }

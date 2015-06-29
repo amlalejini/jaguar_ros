@@ -5,6 +5,8 @@
 #include <jaguar_ros/MotorInfo.h>
 #include <jaguar_ros/JaguarMotorSensorData.h>
 #include <jaguar_ros/JaguarMotionBoardInfo.h>
+#include <jaguar_ros/JaguarMotorTemps.h>
+#include <jaguar_ros/JaguarBatteryInfo.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +39,8 @@ string DEFAULT_REAR_FLIPPER_CONTROL_TOPIC = "rear_flipper_cmds";
 string DEFAULT_HEADLIGHT_CONTROL_TOPIC = "headlight_cmds";
 string DEFAULT_MOTOR_SENSORS_TOPIC = "jaguar_motor_sensors";
 string DEFAULT_MOTION_BOARD_INFO_TOPIC = "jaguar_motion_board_info";
+string DEFAULT_BATTERY_INFO_TOPIC = "jaguar_battery_info";
+string DEFAULT_MOTOR_TEMPERATURE_SENSORS_TOPIC = "jaguar_motor_temperatures";
 // Motor Constants
 //   - Drive motor constants
 int DEFAULT_DRIVE_MOTOR_DIRECTION = 1;
@@ -82,6 +86,8 @@ private:
     // ROS Publishers
     ros::Publisher motor_info_pub;
     ros::Publisher motion_board_info_pub;
+    ros::Publisher motor_temps_pub;
+    ros::Publisher battery_info_pub;
 
     // Networking variables
     string jaguar_network_ip;
@@ -95,7 +101,9 @@ private:
     string headlight_ctrl_topic;
     string motor_sensors_topic;
     string motion_board_info_topic;
-    // Motor parameters (can't use floats because of ros param server compatibility issue)
+    string motor_temperature_sensors_topic;
+    string battery_info_topic;
+    // Motor parameters (can't use floats instead of doubles because of ros param server compatibility issue)
     double drive_max_speed;
     double drive_min_speed;
     int drive_motor_direction;
@@ -106,14 +114,12 @@ private:
     // Sensor data variables
     int motion_board_heat_sensor_cnt;
     struct MotorSensorData motor_sensor_data; // documented in DrRobotMotionSensorDriver.hpp
-    //struct RangeSensorData rangeSensorData_;
-    struct PowerSensorData power_sensor_data;
-    // TODO: GET RID OF standard and custom sensor data variables. (break them up)
     struct StandardSensorData standard_sensor_data;
     struct CustomSensorData custom_sensor_data;
 
     void connect(void);
     void update(void);
+    double drrobotRawMotorTemperatureToCelsius(double adValue);
 
     void driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg);
     void frontFlipperCallback(const std_msgs::Float32::ConstPtr& msg);
@@ -139,6 +145,8 @@ JaguarPlayer::JaguarPlayer() {
     node_handle.param<string>("robot_control_topics/headlight_control", headlight_ctrl_topic, DEFAULT_HEADLIGHT_CONTROL_TOPIC);
     node_handle.param<string>("sensors/motor_sensors/topic", motor_sensors_topic, DEFAULT_MOTOR_SENSORS_TOPIC);
     node_handle.param<string>("sensors/motion_board/topic", motion_board_info_topic, DEFAULT_MOTION_BOARD_INFO_TOPIC);
+    node_handle.param<string>("sensors/motor_temperature/topic", motor_temperature_sensors_topic, DEFAULT_MOTOR_TEMPERATURE_SENSORS_TOPIC);
+    node_handle.param<string>("sensors/battery", battery_info_topic, DEFAULT_BATTERY_INFO_TOPIC);
     // - Load Motor parameters
     //   - Drive
     node_handle.param<double>("motors/drive/max_speed", drive_max_speed, DEFAULT_DRIVE_MOTOR_MAX_SPEED);
@@ -190,7 +198,8 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////
     motor_info_pub = node_handle.advertise<jaguar_ros::JaguarMotorSensorData>(motor_sensors_topic, 1);
     motion_board_info_pub = node_handle.advertise<jaguar_ros::JaguarMotionBoardInfo>(motion_board_info_topic, 1);
-    
+    motor_temps_pub = node_handle.advertise<jaguar_ros::JaguarMotorTemps>(motor_temperature_sensors_topic, 1);
+    battery_info_pub = node_handle.advertise<jaguar_ros::JaguarBatteryInfo>(battery_info_topic, 1);
     ///////////////////////////////////////////////////////
     // Setup ROS Subscribers
     ///////////////////////////////////////////////////////
@@ -229,6 +238,50 @@ void JaguarPlayer::connect() {
         }
     }
 }
+
+double JaguarPlayer::drrobotRawMotorTemperatureToCelsius(double adValue) {
+    /*
+        Given a raw value read in from drrobot Jaguar's motor temperature sensor, 
+        return the temperature in celsius.
+        Note: This function's contents are, for the most part, lifted directly 
+        from the Windows C# Trans2Temperature(double adValue) function.
+    */
+    // I wish I had some documentation on the magic number palooza that is the below variable.
+    // However, I unfortunately do not.
+    double resTable[] = {114660,84510,62927,47077,35563,27119,20860,16204,12683,10000,
+                        7942,6327,5074,4103,3336,2724,2237,1846,1530,1275,1068,899.3,760.7,645.2,549.4};
+    // Again, I wish I had some documentation.
+    double tempTable[] = { -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100 };
+    double FULLAD = 4095;
+    double tempM;
+    double k = (adValue / FULLAD);
+    double resValue = 0;
+    // I feel the need to go ahead and apologize again for what is about to happen.
+    if (k != 1)
+        resValue = 10000 * k / (1 - k);
+    else
+        resValue = resTable[0];
+
+    int index = -1;
+    if (resValue >= resTable[0])
+        tempM = -20;
+    else if (resValue <= resTable[24])
+        tempM = 100;
+    else {
+        for (int i = 0; i < 24; i++) {
+            if ((resValue <= resTable[i]) && (resValue >= resTable[i + 1])) {
+                index = i;
+                break;
+            }
+        }
+        if (index >= 0)
+            tempM = tempTable[index] + (resValue - resTable[index]) / (resTable[index + 1] - resTable[index]) * (tempTable[index + 1] - tempTable[index]);
+        else
+            tempM = 0;
+    }
+    // I'm so sorry you had to read through that.
+    return tempM;
+}   
 
 void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
     /* 
@@ -305,10 +358,11 @@ void JaguarPlayer::update() {
         // Get Motion board sensor information
         jaguar_driver->readStandardSensorData(&standard_sensor_data);
         ros::Time motion_board_time = ros::Time::now();
-        // Try to get Power sensor data
-        // jaguar_driver->readPowerSensorData(&power_sensor_data);
-        // ros::Time power_sensor_time = ros::Time::now();
-        // printf("Battery Info: [B1Vol: %d], [B1Temp: %d]\n", power_sensor_data.battery1Vol, power_sensor_data.battery1Thermo);
+        // Get custom sensor information
+        //  - Documented in jaguar_ros/docs/jaguar_customADSensor.txt
+        jaguar_driver->readCustomSensorData(&custom_sensor_data);
+        ros::Time custom_sensor_time = ros::Time::now();
+
         ///////////////////////////////////////////////////////////////////
         // Motor sensor numbers: (looking towards front of robot)
         // - 0: front flipper
@@ -357,12 +411,15 @@ void JaguarPlayer::update() {
         // Publish motor info message
         motor_info_pub.publish(motor_sensor_msg);
         ///////////////////////////////////////////////////////////////////
+
+        ///////////////////////////////////////////////////////////////////
+        // Build and publish message that contains motion board sensors.
         jaguar_ros::JaguarMotionBoardInfo motion_board_info_msg;
         motion_board_info_msg.header.stamp = motion_board_time;
 
         motion_board_info_msg.heat_sensors.resize(motion_board_heat_sensor_cnt);
         for (int i = 0; i < motion_board_heat_sensor_cnt; i++) {
-            // convert heat sensor raw reading to celcius (math is documented in WiRobot SDK API Reference Manual for drrobot Jaguar)
+            // convert heat sensor raw reading to celsius (math is documented in WiRobot SDK API Reference Manual for drrobot Jaguar)
             int ival = standard_sensor_data.overHeatSensorData[i];
             //motion_board_info_msg.heat_sensors[i] = 100 - ((ival - 980) / 11.6);
             motion_board_info_msg.heat_sensors[i] = (ival - 1256) / 34.8;
@@ -372,8 +429,51 @@ void JaguarPlayer::update() {
         motion_board_info_msg.motor_power_vol = (double)standard_sensor_data.motorPowerVol * 34.498 / 4095.0;   // Convert to voltage (copied from original drrobot_player)
         // publish motion board info message
         motion_board_info_pub.publish(motion_board_info_msg);
-        //TODO: Figure out how to get battery voltage
-        // Custom sensor data math: Sensor output voltage = (ival) * 3.0 / 4095 (V)
+        ///////////////////////////////////////////////////////////////////
+
+        ///////////////////////////////////////////////////////////////////
+        // Extract relevant information from customADSensor data
+        ///////////////////////////////////////////////////////////////////
+        // AD0- board 5V voltage
+        // AD1 – motor power(battery power) voltage
+        // AD2 – left rear motor temperature
+        // AD3 - right rear motor temperature
+        // AD4 – left front motor temperature
+        // AD5 – front flip motor temperature
+        // AD6 – right front motor temperature
+        // AD7 – rear flip motor temperature
+        // get battery voltage and convert from raw to voltage
+        double battery_voltage = custom_sensor_data.customADData[1] / 4095 * 34.498;
+        // get motor temperatures and convert from raw to celsius
+        double left_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[2]);
+        double right_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[3]);
+        double left_front_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[4]);
+        double front_flipper_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[5]);
+        double right_front_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[6]);
+        double rear_flipper_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[7]);
+        ///////////////////////////////////////////////////////////////////
+
+        ///////////////////////////////////////////////////////////////////
+        // Publish Battery voltage 
+        jaguar_ros::JaguarBatteryInfo battery_info_msg;
+        battery_info_msg.header.stamp = custom_sensor_time;
+        battery_info_msg.voltage = battery_voltage;
+        // publish battery info
+        battery_info_pub.publish(battery_info_msg);
+        ///////////////////////////////////////////////////////////////////
+        
+        ///////////////////////////////////////////////////////////////////
+        // Publish Motor temperatures
+        jaguar_ros::JaguarMotorTemps motor_temps_msg;
+        motor_temps_msg.header.stamp = custom_sensor_time;
+        motor_temps_msg.front_port_drive_temp = right_front_drive_motor_temp;
+        motor_temps_msg.front_starboard_drive_temp = left_front_drive_motor_temp;
+        motor_temps_msg.rear_port_drive_temp = right_rear_drive_motor_temp;
+        motor_temps_msg.rear_starboard_drive_temp = left_rear_drive_motor_temp;
+        motor_temps_msg.front_flipper_temp = front_flipper_motor_temp;
+        motor_temps_msg.rear_flipper_temp = rear_flipper_motor_temp;
+        motor_temps_pub.publish(motor_temps_msg);
+        ///////////////////////////////////////////////////////////////////
     }   
 }
 
