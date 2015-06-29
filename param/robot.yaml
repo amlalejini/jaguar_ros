@@ -2,6 +2,7 @@ player:                         # General parameters for motorolla eval board in
     network_ip: 192.168.0.70            
     network_port: 10001
 motors:
+    ids: {front_flipper: 0, rear_flipper: 1, port_drive: 3, starboard_drive: 4}  # see jaguar_ros git Wiki
     drive:
         max_speed: 1.0      # 1.53 m/s
         min_speed: 0.1      # rad/s
@@ -15,10 +16,17 @@ sensors:
         topic: jaguar_gps
         ip: 192.168.0.71
         port: 10002
+        frame_id: jaguar_gps
     imu:
         topic: jaguar_imu
         ip: 192.168.0.71
         port: 10001
+        frame_id: jaguar_imu
+    motor_sensors:
+        topic: jaguar_motor_sensors
+    motion_board:
+        topic: jaguar_motion_board_info
+        heat_sensor_cnt: 2
 robot_control_topics:
     drive_control: cmd_vel
     front_flipper_control: front_flipper_cmds
