@@ -194,7 +194,8 @@ unsigned char DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::CalculateCR
 // Sends an acknowledgment message
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendAck()
 {
-  unsigned char msg[] = {COM_STX0,COM_STX1,COM_TYPE_MOT,0,0xff,1,1,0,COM_ETX0,COM_ETX1};
+  // See Sendcommand for msg documentation
+  unsigned char msg[] = {COM_STX0,COM_STX1,COM_TYPE_MOT,0,COMTYPE_SYSTEM,1,DATA_ACK,0,COM_ETX0,COM_ETX1};
   msg[7] = CalculateCRC(&msg[2],msg[5] + 4);
   return sendCommand(msg,10);
 }
@@ -600,7 +601,8 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(C
     msg[4] = MOTORPOSITIONCTRLALL;
   }
 
-    msg[5] = 14;
+    msg[5] = 14; // number of data bytes 2*6 motor cmds + 2 time
+  // TODO: Simplify this garbage
   for (int i = 0; i < 6; i ++)
   {
     if (i == 0)
@@ -1033,6 +1035,21 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setCustomIO(const int
 }
 
 // Sends the actual message
+// Message format
+// Index  Purpose      Source
+// 0      STX0         DrRobotCommConst.hpp
+// 1      STX1         DrRobotCommConst.hpp
+// 2      Comm type    DrRobotCommConst.hpp
+//        (PC or Mot)
+// 3      Unknown      Any message function
+//        (Always 0)
+// 4      msg type     DrRobotCommConst.hpp
+// 5      data length  DrRobotCommConst.hpp
+// 6      data         Any message function
+// ...    data         Any message function
+// last-2 CRC          Any function
+// last-1 ETX0         DrRobotCommConst.hpp
+// last   ETX1         DrRobotCommConst.hpp
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendCommand(const unsigned char* msg, const int nLen)
 {
   ssize_t retval = 0;

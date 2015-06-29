@@ -114,7 +114,7 @@
   // Index of msg where msg type is located.
   #define INDEX_TYPE              4
 
-  // Index of msg where msg length is located.
+  // Index of msg where lenght of data in msg is located.
   #define INDEX_LENGTH            5
 
   // Index of msg where data begins.
@@ -124,7 +124,7 @@
   // At index INDEX_TYPE
   #define COMTYPE_SYSTEM          0xFF
   #define COMTYPE_SENSOR          0x7F
-  #define COMTYPE_MOTOR           40
+  #define COMTYPE_MOTOR           40 // Why u no hex!?
   #define COMTYPE_MOTOR_SENSOR     0x7B
   #define COMTYPE_CUSTOM_SENSOR    0x7C
   #define COMTYPE_STANDARD_SENSOR   0x7D
