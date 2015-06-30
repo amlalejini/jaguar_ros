@@ -1,5 +1,5 @@
 <launch>
-    <rosparam command="load" file="$(find jaguar_ros)/param/robot.yaml" />
+    <rosparam command="load" file="$(find jaguar_ros)/param/robot_brutus.yaml" />
     <rosparam command="load" file="$(find jaguar_ros)/param/controller_config.yaml" />
     
     <node name="headlight_controller" pkg="jaguar_ros" type="headlight_controller.py" output="screen" />

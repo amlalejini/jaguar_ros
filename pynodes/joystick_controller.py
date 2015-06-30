@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import rospy, copy, math
+import rospy, copy, math, numpy
 from utils import *
 from threading import Lock
 from geometry_msgs.msg import Twist
@@ -26,9 +26,12 @@ __authors__ = ["Alex Lalejini"]
 DEFAULT_LINEAR_AXIS = "LEFT_STICK_VERTICAL"
 DEFAULT_ANGULAR_AXIS = "LEFT_STICK_HORIZONTAL"
 DEFAULT_HEADLIGHT_BTTN = "Y"
-DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
 DEFAULT_FRONT_FLIPPER_BTTNS = {"UP":"R1", "DOWN":"RIGHT_TRIGGER"}
 DEFAULT_REAR_FLIPPER_BTTNS = {"UP":"L1", "DOWN":"LEFT_TRIGGER"}
+
+DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
+DEFAULT_VELOCITY_SMOOTHING_SETTING = False
+SMOOTHING_HISTORY_LEN = 10
 # Motor Settings
 # DEFAULT_MAX_SPEED:
 #   - LINEAR: Max speed in m/s (documented max speed: 5.5km/hr or 1.53m/s)
@@ -56,15 +59,16 @@ class Joystick_Controller(object):
         self.prev_joy = Joy()  # Stores previous joy message (useful for sequence related commands)
 
         # Load some controller parameters
-        self.linear_axis = rospy.get_param("controller_settings/linear_axis", DEFAULT_LINEAR_AXIS) # Default value
-        self.angular_axis = rospy.get_param("controller_settings/angular_axis", DEFAULT_ANGULAR_AXIS) 
-        self.headlight_bttn = rospy.get_param("controller_settings/headlight_bttn", DEFAULT_HEADLIGHT_BTTN)
-        self.front_flipper_up_bttn = rospy.get_param("controller_settings/front_flipper_up_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["UP"])
-        self.front_flipper_down_bttn = rospy.get_param("controller_settings/front_flipper_down_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["DOWN"])
-        self.rear_flipper_up_bttn = rospy.get_param("controller_settings/rear_flipper_up_bttn", DEFAULT_REAR_FLIPPER_BTTNS["UP"])
-        self.rear_flipper_down_bttn = rospy.get_param("controller_settings/rear_flipper_down_bttn", DEFAULT_REAR_FLIPPER_BTTNS["DOWN"])        
+        self.linear_axis = rospy.get_param("controller_settings/controller_mappings/linear_axis", DEFAULT_LINEAR_AXIS) # Default value
+        self.angular_axis = rospy.get_param("controller_settings/controller_mappings/angular_axis", DEFAULT_ANGULAR_AXIS) 
+        self.headlight_bttn = rospy.get_param("controller_settings/controller_mappings/headlight_bttn", DEFAULT_HEADLIGHT_BTTN)
+        self.front_flipper_up_bttn = rospy.get_param("controller_settings/controller_mappings/front_flipper_up_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["UP"])
+        self.front_flipper_down_bttn = rospy.get_param("controller_settings/controller_mappings/front_flipper_down_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["DOWN"])
+        self.rear_flipper_up_bttn = rospy.get_param("controller_settings/controller_mappings/rear_flipper_up_bttn", DEFAULT_REAR_FLIPPER_BTTNS["UP"])
+        self.rear_flipper_down_bttn = rospy.get_param("controller_settings/controller_mappings/rear_flipper_down_bttn", DEFAULT_REAR_FLIPPER_BTTNS["DOWN"])        
 
-        self.axis_slop_thresh = rospy.get_param("controller_settings/slop", DEFAULT_CONTROLLER_AXIS_SLOP)
+        self.axis_slop_thresh = rospy.get_param("controller_settings/axis_slop", DEFAULT_CONTROLLER_AXIS_SLOP)
+        self.velocity_smoothing = rospy.get_param("controller_settings/velocity_smoothing", DEFAULT_VELOCITY_SMOOTHING_SETTING)
 
         self._check_controller_settings()
         
@@ -164,6 +168,8 @@ class Joystick_Controller(object):
         rospy.wait_for_message(self.joy_topic, Joy)
         # create target rate to attempt to keep run loop at (10hz is good)
         rate = rospy.Rate(10)
+        # Create variables needed for velocity smoothing
+        #linear_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
         while not rospy.is_shutdown():
             # safely grab most recent joy message
             joy = None

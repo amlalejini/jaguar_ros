@@ -1,11 +1,13 @@
 controller_settings:
     joystick_topic: joy
-    linear_axis: LEFT_STICK_VERTICAL
-    angular_axis: LEFT_STICK_HORIZONTAL
-    headlight_bttn: Y
-    front_flipper_up_bttn: R1
-    front_flipper_down_bttn: RIGHT_TRIGGER
-    rear_flipper_up_bttn: L1
-    rear_flipper_down_bttn: LEFT_TRIGGER
-    slop: 0.075  # slop threshold to treat as 0
+    controller_mappings:
+        linear_axis: LEFT_STICK_VERTICAL
+        angular_axis: LEFT_STICK_HORIZONTAL
+        headlight_bttn: Y
+        front_flipper_up_bttn: R1
+        front_flipper_down_bttn: RIGHT_TRIGGER
+        rear_flipper_up_bttn: L1
+        rear_flipper_down_bttn: LEFT_TRIGGER
+    axis_slop: 0.075  # slop threshold to treat as 0
+    velocity_smoothing: True  
     
