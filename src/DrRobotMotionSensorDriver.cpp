@@ -33,7 +33,7 @@ DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DrRobotMotionSensorDriver
 
   // Innitializes ip address, port number, etc. to defaults.
   bzero(&_addr, sizeof(_addr));
-  inet_pton(_addr.sin_family,driverConfig->robotIP, &_addr.sin_addr)
+  inet_pton(_addr.sin_family,robotConfig->robotIP, &_addr.sin_addr)
   _addr.sin_family = AF_INET;
   _addr.sin_port = htons(_robotConfig->portNum);
   _addr_len = sizeof _addr;
@@ -246,11 +246,11 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
 
   // Data looks good so far... Begin processing based on msg type
   switch ( (unsigned char)lpComData[INDEX_TYPE] )
-
+  {
     case COMTYPE_SYSTEM:
     
       switch ( lpComData[INDEX_DATA] )
-  
+  		{
         case DATA_ACK:
 
           debugCommMessage("Received acknowledgment packet!\n");
@@ -278,7 +278,8 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
         default:
 
           debugCommMessage("Invalid packet data in system packet, discarding!\n");
-          return; 
+          return;
+      }
       break;
 
     case COMTYPE_SENSOR:
@@ -405,7 +406,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DealWithPacket(const
        sprintf(debugtemp, "Invalid packet data type(%#2X), discarding!\n", (unsigned char)lpComData[INDEX_TYPE] );
       debugCommMessage(debugtemp);
       return;
-
+  }
   return;
 }
 
@@ -547,7 +548,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::getDrRobotMotionDriv
   return;
 }
 
-void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig)
+int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig)
 {
   // Temporary variable for debug string
   char temp[512];
