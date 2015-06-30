@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import rospy, socket, atexit, re
+from math import sqrt
 from tf.transformations import quaternion_from_euler
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Header
@@ -64,6 +65,73 @@ class IMU_Reporter(object):
         self.imu_topic = rospy.get_param("sensors/imu/topic", DEFAULT_IMU_TOPIC)
         # Create necessary ROS publishers
         self.imu_pub = rospy.Publisher(self.imu_topic, Imu)#, queue_size = 10)
+    
+    def sign_of(self, num):
+        '''
+        Given number, return 1 if number is positive, -1 if negative.
+        '''
+        return 1.0 if num >= 0.0 else -1.0
+
+    def rot_mat_to_quat(self, rot_mat):
+        '''
+        Given a 3x3 rotation matrix, convert to quaternion.
+        rotation matrix form: [ [r11, r12, r13]
+                                [r21, r22, r23]
+                                [r31, r32, r33] ]
+        NOTE: This conversion function comes from: http://www.cg.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche52.html
+        '''
+
+        try:
+            r11 = rot_mat[0][0]
+            r12 = rot_mat[0][1]
+            r13 = rot_mat[0][2]
+            r21 = rot_mat[1][0]
+            r22 = rot_mat[1][1]
+            r23 = rot_mat[1][2]
+            r31 = rot_mat[2][0]
+            r32 = rot_mat[2][1]
+            r33 = rot_mat[2][2]
+        except:
+            return None
+
+        q0 = (r11 + r22 + r33 + 1.0) / 4.0
+        q1 = ( r11 - r22 - r33 + 1.0) / 4.0;
+        q2 = (-r11 + r22 - r33 + 1.0) / 4.0;
+        q3 = (-r11 - r22 + r33 + 1.0) / 4.0;
+        if (q0 < 0.0): q0 = 0.0
+        if (q1 < 0.0): q1 = 0.0
+        if (q2 < 0.0): q2 = 0.0
+        if (q3 < 0.0): q3 = 0.0
+        q0 = sqrt(q0)
+        q1 = sqrt(q1)
+        q2 = sqrt(q2)
+        q3 = sqrt(q3)
+        if (q0 >= q1 and q0 >= q2 and q0 >= q3):
+            q0 *= +1.0;
+            q1 *= self.sign_of(r32 - r23);
+            q2 *= self.sign_of(r13 - r31);
+            q3 *= self.sign_of(r21 - r12);
+        elif (q1 >= q0 and q1 >= q2 and q1 >= q3):
+            q0 *= self.sign_of(r32 - r23);
+            q1 *= +1.0;
+            q2 *= self.sign_of(r21 + r12);
+            q3 *= self.sign_of(r13 + r31);
+        elif (q2 >= q0 and q2 >= q1 and q2 >= q3):
+            q0 *= self.sign_of(r13 - r31);
+            q1 *= self.sign_of(r21 + r12);
+            q2 *= +1.0;
+            q3 *= self.sign_of(r32 + r23);
+        elif (q3 >= q0 and q3 >= q1 and q3 >= q2):
+            q0 *= self.sign_of(r21 - r12);
+            q1 *= self.sign_of(r31 + r13);
+            q2 *= self.sign_of(r32 + r23);
+            q3 *= +1.0;
+        else:
+            return None
+        r = sqrt(q0**2 + q1**2 + q2**2 + q3**2)
+        return [q0 / r, q1 / r, q2 / r, q3 / r]
+
+
 
     def parse_imu(self, data):
         '''
@@ -95,6 +163,11 @@ class IMU_Reporter(object):
                 magnetonx = float(imu_data[7])
                 magnetony = float(imu_data[8])
                 magnetonz = float(imu_data[9])
+
+                rot_mat = [ [float(imu_data[10]), float(imu_data[11]), float(imu_data[12])],
+                            [float(imu_data[13]), float(imu_data[14]), float(imu_data[15])],
+                            [float(imu_data[16]), float(imu_data[17]), float(imu_data[18])] ]
+
             except:
                 # bad data in match, pass
                 return None
@@ -109,14 +182,15 @@ class IMU_Reporter(object):
                 # otherwise, update current magnetometer
                 else:
                     self.current_mag = [magnetonx, magnetony, magnetonz]
-                    #self.mag_fp.write(str(magnetonx) + "," + str(magnetony) + "," + str(magnetonz) + "\n")
 
+                # Calculate quaternion from given rotation matrix
+                quat = rot_mat_to_quat(rot_mat);
                 # Build message 
                 msg = Imu()
                 msg.header = Header(stamp = rospy.Time.now(), frame_id = "imu")
                 msg.linear_acceleration = Vector3(accelx, accely, accelz)
                 msg.angular_velocity = Vector3(gyrox, gyroy, gyroz)
-                msg.orientation = Quaternion()
+                if quat != None: msg.orientation = Quaternion(quat[0], quat[1], quat[2], quat[3])
                 return msg
 
     def run(self):
