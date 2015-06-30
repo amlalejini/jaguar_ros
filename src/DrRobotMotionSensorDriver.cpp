@@ -70,11 +70,10 @@ bool DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::portOpen()
 
 void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::close()
 {
-
+    
   _stopComm = true;
   _pCommThread->join();
   _eCommState = Disconnected;
-  
   if (_sockfd > 0)
   {
     ::close(_sockfd);
@@ -94,10 +93,6 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::debug_ouput(const ch
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openNetwork()
 {
-  
-  // Closes any open sockets
-  close();
-
   // Allow communications
   _stopComm = false;
 
@@ -117,7 +112,6 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openNetwork()
     }
 
   _eCommState = Connected;
-
   // Starts thread for callback loop
   _pCommThread = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&DrRobotMotionSensorDriver::commWorkingThread, this)));
   return 0;

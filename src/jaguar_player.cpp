@@ -175,7 +175,7 @@ JaguarPlayer::JaguarPlayer() {
     jaguar_driver_config.portNum = jaguar_network_port;
     // - Set jaguar player IP (IP of motorola eval board)
     strcpy(jaguar_driver_config.robotIP, jaguar_network_ip.c_str());
-    strcpy(jaguar_driver_config.robotID, robot_id.c_str());
+    //strcpy(jaguar_driver_config.robotID, robot_id.c_str());
     ///////////////////////////////////////////////////////
     
     ///////////////////////////////////////////////////////
@@ -189,7 +189,6 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////    
     // - Connect to robot
     connect();
-    
     ///////////////////////////////////////////////////////
     // Setup ROS Publishers
     ///////////////////////////////////////////////////////
@@ -418,9 +417,9 @@ void JaguarPlayer::update() {
         for (int i = 0; i < motion_board_heat_sensor_cnt; i++) {
             // convert heat sensor raw reading to celsius (math is documented in WiRobot SDK API Reference Manual for drrobot Jaguar)
             int ival = standard_sensor_data.overHeatSensorData[i];
-            motion_board_info_msg.heat_sensors[i] = ival; // Just put raw values in; not sure if drrobot's documented formulas are correct (below).
+           // motion_board_info_msg.heat_sensors[i] = ival; // Just put raw values in; not sure if drrobot's documented formulas are correct (below).
             //motion_board_info_msg.heat_sensors[i] = 100 - ((ival - 980) / 11.6);
-            //motion_board_info_msg.heat_sensors[i] = (ival - 1256) / 34.8;
+            motion_board_info_msg.heat_sensors[i] = (ival - 1256) / 34.8;
         }
         motion_board_info_msg.board_power_vol = (double)standard_sensor_data.boardPowerVol * 9.0 / 4095.0;  // Data comes in raw (0 - 4095), convert to voltage (9volt max) (copied from original drrobot_player)
         motion_board_info_msg.board_ref_vol = (double)standard_sensor_data.refVol / 4095.0 * 6.0;           // Convert to voltage (copied from original drrobot_player)
