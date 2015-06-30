@@ -71,29 +71,17 @@ namespace DrRobot_MotionSensorDriver
    */
   const int  NOCONTROL = -32768;
 
-  const int ULTRASONICSENSOR_NUM = 6;	//!< on motion control system up to 6 channel ultrasonic sensor,
-					//!< I90, Sentinel3 [0,1,2], Hawk [0~5], H20[0~4], X80SV, X80SVP [0~5]
   const int CUSTOMSENSOR_NUM = 8;	//!< on motion control system up to 8 AD channel
 					//!< not available on standard I90,Sentinel3, Hawk/H20 robot
   const int MOTORSENSOR_NUM = 6;	//!< on motion control system up to 6 motor channel
 					//!< channel 0,1 for I90,Sentinel3,Hawk/H20 left/right motor
 					//!< channel 0,1 for Jaguar Arm motor, channel 3,4 for Jaguar forward/Turn power,
-  const int IRRANGESENSOR_NUM = 10;	//!< up to 10 IR range sensor on standard I90/Sentinel3/Hawk/H20 Robot
-					//!< mounting position/orientation information please referee robot manual
+  
 
-  /*! \enum CommMethod
-   * Normally for standard robot, driver will use Network to communicate with robot
-   * If you use RS232 module connect robot with your PC, you need set as Serial
-   */
-  enum CommMethod {Network, Serial};
   /*! \enum CommState
    *  Driver communication status
    */
   enum CommState { Disconnected, Connected};
-  /*! \enum CommMethod
-   *  specify the control system on the robot
-   */
-  enum BoardType {I90_Motion,I90_Power,Sentinel3_Motion, Sentinel3_Power,Hawk_H20_Motion,Hawk_H20_Power,Jaguar,X80SV};
   /*! \enum CtrlMethod
    *  specify control method of the motor control command
    */
@@ -107,9 +95,6 @@ namespace DrRobot_MotionSensorDriver
     char robotID[CHAR_BUF_LEN];        //!< robotID, you could specify your own name for your robot
     char robotIP[CHAR_BUF_LEN];        //!< robot main WiFi module IP address, you could get it by manual
     int portNum;                       //!< robot main WiFi module port number, is power system on 10001 port, motion system on 10002
-    CommMethod commMethod;             //!< communication method enum CommMethod
-    char serialPortName[CHAR_BUF_LEN]; //!< serial port name if you use serial communication
-    BoardType boardType;               //!< specify the control system on the robot, enum BoardType
   };
 
   /*! \struct  MotorSensorData
@@ -125,55 +110,7 @@ namespace DrRobot_MotionSensorDriver
     int motorSensorPWM[MOTORSENSOR_NUM];                //!< motion control system output PWM value, only channel[0,1,3,4] available on Jaguar robot
   };
 
-  /*! \struct  PowerSensorData
-   *  only available on I90/Sentinel3/Hawk/H20 power control system
-   */
-  struct PowerSensorData
-  {
-    int battery1Vol;            //!< battery 1 voltage AD value reading
-    int battery1Thermo;         //!< battery 1 temperature AD value reading
-    int battery2Vol;            //!< battery 2 voltage AD value reading
-    int battery2Thermo;         //!< battery 2 temperature AD value reading
-    int dcINVol;                //!< DCIN voltage AD value reading
-    int refVol;                 //!< AD reference power AD value reading
-    BYTE powerStatus;           //!< power control system status, please referee the Dr Robot protocol reference manual
-                                //!< bit 0 --- reserved
-                                //!< bit 1 --- reserved
-                                //!< bit 2 --- charge status, '1' in charging, '0' no charging
-                                //!< bit 3 --- power fail
-                                //!< bit 4 --- DCDIV comparator output
-                                //!< bit 5 --- lower power
-                                //!< bit 6 --- Fault(no reset, short circuit, shutdown)
-                                //!< bit 7 --- reserved
-    BYTE powerPath;             //!< power path control, please referee the Dr Robot protocol reference mannaul
-                                //!< bit 0 --- reserved
-                                //!< bit 1 --- reserved
-                                //!< bit 2 --- reserved
-                                //!< bit 3 --- reserved
-                                //!< bit 4 --- reserved
-                                //!< bit 5 --- '1' powered by DCIN, '0' no
-                                //!< bit 6 --- '1' powered by Battery2, '0' no
-                                //!< bit 7 --- '1' powered by Battery1, '0' no
-    BYTE powerChargePath;       //!< charge path control, please referee the Dr Robot protocol reference mannual
-                                //!< bit 0 --- reserved
-                                //!< bit 1 --- reserved
-                                //!< bit 2 --- reserved
-                                //!< bit 3 --- reserved
-                                //!< bit 4 --- reserved
-                                //!< bit 5 --- reserved
-                                //!< bit 6 --- '1' Battery2 in charging, '0' no
-                                //!< bit 7 --- '1' Battery1 in charging, '0' no
-  };
 
-  /*! \struct  RangeSensorData
-   *  the driver will collector all the IR range sensors(AD value) and ultrasonic sensors reading
-   *  into this structure, user could use on reading function to get all the range sensor information
-   */
-  struct RangeSensorData
-  {
-    int irRangeSensor[IRRANGESENSOR_NUM];       //!< IR range sensor AD value reading
-    int usRangeSensor[ULTRASONICSENSOR_NUM];    //!< ultrasonic range sensor reading, unit is cm, 0~ 255cm
-  };
   /*! \struct  CustomSensorData
    *  8 expanded AD channel not available on standard robot
    *  8bit expanded IO channel available
@@ -191,9 +128,7 @@ namespace DrRobot_MotionSensorDriver
   {
     int humanSensorData[4];             //!< 2 human sensor, each with alarm/motion 2 channel output, on standard robot,
                                         //!< left human sensor channel[0,1], right human sensor channel[2,3]
-    int tiltingSensorData[2];           //!< only available on X80SVP robot, channel[0] - X axis, channel[1] -- Y axis
     int overHeatSensorData[2];          //!< temperature sensor on motion control board
-    int thermoSensorData;               //!< temperature sensor only available on X80SVP robot
     int boardPowerVol;                  //!< motion control board main power voltage AD reading
     int motorPowerVol;                  //!< motor power voltage AD reading
     int servoPowerVol;                  //!< servo power voltage AD reading, only available on X80 series robot
@@ -234,7 +169,7 @@ namespace DrRobot_MotionSensorDriver
     bool portOpen();
 
     /*! @brief
-     *  This function is used for closing the communication
+     *  This function is used for closing the communications socket
      * @param[in]   none
      * @return 0 -- communication is closed
      *         others  -- something wrong there
@@ -242,28 +177,20 @@ namespace DrRobot_MotionSensorDriver
     void close();
 
     /*! @brief
-     *  If the driver is configured as using serial communication, this function could open serial port and starting communication
-     * @param[in]   serialPort serial port, on linux system, should as /dev/ttyS0
-     * @param[in]   BAUD serial port baud rate, should be 115200 on standard robot
-     * @return 0  port opened and starting communication
-     *         others  something wrong there
-     */
-    int openSerial(const char* serialPort, const long BAUD);
-
-    /*! @brief
-     *  If the driver is configured as using network communication, this function could open UDP port to connect with robot
+     *  This function will open UDP port to connect with robot
      *  and start communication
-     * @param[in]   robotIP, should be as dot format, such as "192.168.0.201"
-     * @param[in]   portNum, port number, 10001 or 10002
      * @return 0  port opened and starting communication
-     *         others  something wrong there
+     *        -1 Socket failed to open
+     *        -2 Ack failed to send/receive
      */
-    int openNetwork(const char*  robotIP, const int portNum );
+    int openNetwork();
 
     /*! @brief
      *  This function will use struct DrRobotMotionConfig to configure the driver
      * @param[in]   driverConfig struct DrRobotMotionConfig
-     * @return null
+     * @return 0 for success
+     *        -1 for invalid port number
+     *        -2 for invalid ip address
      */
     void setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig);
 
@@ -284,29 +211,12 @@ namespace DrRobot_MotionSensorDriver
     int readMotorSensorData(MotorSensorData* motorSensorData );
 
     /*! @brief
-     *  This function is used for reading power sensor back from power control system
-     *  It is only for I90 series/Sentinel3/Hawk/H20 system
-     * @param[in]   powerSensorData this struct PowerSensorData will contain all the raw power sensor data when returning
-     * @return 0 means success, other fail
-     */
-    int readPowerSensorData(PowerSensorData* powerSensorData );
-
-    /*! @brief
      *  This function is used for reading custom sensor back from motion controller
      *  On standard I90/Sentinel3/Hawk/H20 Robot, custom expanded AD channel not available
      * @param[in]   customSensorData this struct CustomSensorData will contain all the raw custom sensor data when returning
      * @return 0 means success, other fail
      */
     int readCustomSensorData(CustomSensorData* customSensorData);
-
-    /*! @brief
-     *  This function is used for reading all the range sensor back from motion controller
-     *  It will include 6 ultrasonic sensors and 10 IR range sensor raw data.
-     *  What is available on robot and mounting information please referee the robot manual
-     * @param[in]   rangeSensorData this struct RangeSensorData will contain all the raw range sensor data when returning
-     * @return 0 means success, other fail
-     */
-    int readRangeSensorData(RangeSensorData* rangeSensorData);
 
     /*! @brief
      *  This function is used for reading standard sensor back from motion controller
@@ -496,33 +406,14 @@ namespace DrRobot_MotionSensorDriver
      */
     int setCustomIO(const int cmd);
 
-    /*! @brief
-     *  This function is used for sending power control command to power control system.
-     *  This command only available for I90/Sentinel3/Hawk/H20 robot.
-     *  You could referee the robot manual to get what system on each power channel
-     * @param[in]   cmd setting power control system
-     *              bit 0 --- '1' turn on the channel 1, '0' turn off the channel 1
-     *              bit 1 --- '1' turn on the channel 2, '0' turn off the channel 2
-     *              bit 2 --- '1' turn on the channel 3, '0' turn off the channel 3
-     *              bit 3 --- choose DCIN as power source
-     *              bit 4 --- choose Battery 2 as power source
-     *              bit 5 --- choose Battery 1 as power source
-     *              bit 6 --- '1' start charging Battery2, '0' stop charging Battery2
-     *              bit 7 --  '1' start charging Battery1, '0' stop charging Battery1
-     * @return  If return value is negative, it means there is something wrong with sending command to robot.
-     *          If successfully sending command, it will return the byte numbers of sending message.
-     */
-    int sendPowerCtrlCmd(const int cmd);
 
   private:
     BYTE _recBuf[MAXBUFLEN];
     BYTE _dataBuf[MAXBUFLEN];
     int _nMsgLen;
     int _sockfd;
-    int _serialfd;
     struct sockaddr_in _addr;
     socklen_t _addr_len;
-    char _sAddr[INET6_ADDRSTRLEN];
     int _numbytes;
     struct timeval _tv;
     fd_set _readfds;
@@ -532,7 +423,6 @@ namespace DrRobot_MotionSensorDriver
     boost::shared_ptr<boost::thread> _pCommThread;
     //private functions here
     void debug_ouput(const char* errorstr);
-    int vali_ip(const char* ip_str);
     int sendAck();
     unsigned char CalculateCRC( const unsigned char *lpBuffer, const int nSize);
     void commWorkingThread();
@@ -543,13 +433,9 @@ namespace DrRobot_MotionSensorDriver
     void debugCommMessage(std::string msg);
     int sendCommand(const unsigned char* msg, const int nLen);
     //sensor data here
-    struct RangeSensorData  _rangeSensorData;
     struct CustomSensorData _customSensorData;
     struct MotorSensorData _motorSensorData;
-    struct PowerSensorData _powerSensorData;
     struct StandardSensorData _standardSensorData;
-    unsigned char _desID;
-    unsigned char _pcID;
   };
 
 }
