@@ -32,6 +32,7 @@ using namespace DrRobot_MotionSensorDriver;
 // Networking
 string DEFAULT_JAGUAR_NETWORK_IP = "192.168.0.70";
 int DEFAULT_JAGUAR_NETWORK_PORT = 10001;
+string DEFAULT_ROBOT_ID = "CLEO";
 // Topics
 string DEFAULT_DRIVE_VEL_TOPIC = "cmd_vel";
 string DEFAULT_FRONT_FLIPPER_CONTROL_TOPIC = "front_flipper_cmds";
@@ -93,6 +94,7 @@ private:
     string jaguar_network_ip;
     int jaguar_network_port;
     string jaguar_serial_port;
+    string robot_id;
     struct DrRobotMotionConfig jaguar_driver_config;
     // Topic names
     string drive_vel_topic;
@@ -138,6 +140,7 @@ JaguarPlayer::JaguarPlayer() {
     // - Load Networking information
     node_handle.param<string>("player/network_ip", jaguar_network_ip, DEFAULT_JAGUAR_NETWORK_IP);
     node_handle.param<int>("player/network_port", jaguar_network_port, DEFAULT_JAGUAR_NETWORK_PORT);
+    node_handle.param<string>("player/robot_id", robot_id, DEFAULT_ROBOT_ID);
     // - Load topic names
     node_handle.param<string>("robot_control_topics/drive_control", drive_vel_topic, DEFAULT_DRIVE_VEL_TOPIC);
     node_handle.param<string>("robot_control_topics/front_flipper_control", front_flipper_ctrl_topic, DEFAULT_FRONT_FLIPPER_CONTROL_TOPIC);
@@ -172,6 +175,7 @@ JaguarPlayer::JaguarPlayer() {
     jaguar_driver_config.portNum = jaguar_network_port;
     // - Set jaguar player IP (IP of motorola eval board)
     strcpy(jaguar_driver_config.robotIP, jaguar_network_ip.c_str());
+    strcpy(jaguar_driver_config.robotID, robot_id.c_str());
     ///////////////////////////////////////////////////////
     
     ///////////////////////////////////////////////////////

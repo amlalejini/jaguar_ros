@@ -1,6 +1,7 @@
 player:                         # General parameters for motorolla eval board interface
     network_ip: 192.168.0.70            
     network_port: 10001
+    robot_id: CLEO
 motors:
     ids: {front_flipper: 0, rear_flipper: 1, port_drive: 3, starboard_drive: 4}  # see jaguar_ros git Wiki
     drive:
