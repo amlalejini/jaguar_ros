@@ -421,8 +421,9 @@ void JaguarPlayer::update() {
         for (int i = 0; i < motion_board_heat_sensor_cnt; i++) {
             // convert heat sensor raw reading to celsius (math is documented in WiRobot SDK API Reference Manual for drrobot Jaguar)
             int ival = standard_sensor_data.overHeatSensorData[i];
+            motion_board_info_msg.heat_sensors[i] = ival; // Just put raw values in; not sure if drrobot's documented formulas are correct (below).
             //motion_board_info_msg.heat_sensors[i] = 100 - ((ival - 980) / 11.6);
-            motion_board_info_msg.heat_sensors[i] = (ival - 1256) / 34.8;
+            //motion_board_info_msg.heat_sensors[i] = (ival - 1256) / 34.8;
         }
         motion_board_info_msg.board_power_vol = (double)standard_sensor_data.boardPowerVol * 9.0 / 4095.0;  // Data comes in raw (0 - 4095), convert to voltage (9volt max) (copied from original drrobot_player)
         motion_board_info_msg.board_ref_vol = (double)standard_sensor_data.refVol / 4095.0 * 6.0;           // Convert to voltage (copied from original drrobot_player)
@@ -443,14 +444,14 @@ void JaguarPlayer::update() {
         // AD6 – right front motor temperature
         // AD7 – rear flip motor temperature
         // get battery voltage and convert from raw to voltage
-        double battery_voltage = custom_sensor_data.customADData[1] / 4095 * 34.498;
+        double battery_voltage = ((double)custom_sensor_data.customADData[1]) / 4095 * 34.498;
         // get motor temperatures and convert from raw to celsius
-        double left_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[2]);
-        double right_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[3]);
-        double left_front_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[4]);
-        double front_flipper_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[5]);
-        double right_front_drive_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[6]);
-        double rear_flipper_motor_temp = drrobotRawMotorTemperatureToCelsius(custom_sensor_data.customADData[7]);
+        double left_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[2]);
+        double right_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[3]);
+        double left_front_drive_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[4]);
+        double front_flipper_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[5]);
+        double right_front_drive_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[6]);
+        double rear_flipper_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[7]);
         ///////////////////////////////////////////////////////////////////
 
         ///////////////////////////////////////////////////////////////////
