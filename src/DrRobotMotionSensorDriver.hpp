@@ -136,6 +136,46 @@ namespace DrRobot_MotionSensorDriver
     int potVol;                         //!< potentiometer power voltage reading, should be around 2048, not used now
   };
 
+  /*! \struct  PowerSensorData
+   *  only available on I90/Sentinel3/Hawk/H20 power control system
+   */
+  struct PowerSensorData
+  {
+    int battery1Vol;            //!< battery 1 voltage AD value reading
+    int battery1Thermo;         //!< battery 1 temperature AD value reading
+    int battery2Vol;            //!< battery 2 voltage AD value reading
+    int battery2Thermo;         //!< battery 2 temperature AD value reading
+    int dcINVol;                //!< DCIN voltage AD value reading
+    int refVol;                 //!< AD reference power AD value reading
+    BYTE powerStatus;           //!< power control system status, please referee the Dr Robot protocol reference manual
+                                //!< bit 0 --- reserved
+                                //!< bit 1 --- reserved
+                                //!< bit 2 --- charge status, '1' in charging, '0' no charging
+                                //!< bit 3 --- power fail
+                                //!< bit 4 --- DCDIV comparator output
+                                //!< bit 5 --- lower power
+                                //!< bit 6 --- Fault(no reset, short circuit, shutdown)
+                                //!< bit 7 --- reserved
+    BYTE powerPath;             //!< power path control, please referee the Dr Robot protocol reference mannaul
+                                //!< bit 0 --- reserved
+                                //!< bit 1 --- reserved
+                                //!< bit 2 --- reserved
+                                //!< bit 3 --- reserved
+                                //!< bit 4 --- reserved
+                                //!< bit 5 --- '1' powered by DCIN, '0' no
+                                //!< bit 6 --- '1' powered by Battery2, '0' no
+                                //!< bit 7 --- '1' powered by Battery1, '0' no
+    BYTE powerChargePath;       //!< charge path control, please referee the Dr Robot protocol reference mannual
+                                //!< bit 0 --- reserved
+                                //!< bit 1 --- reserved
+                                //!< bit 2 --- reserved
+                                //!< bit 3 --- reserved
+                                //!< bit 4 --- reserved
+                                //!< bit 5 --- reserved
+                                //!< bit 6 --- '1' Battery2 in charging, '0' no
+                                //!< bit 7 --- '1' Battery1 in charging, '0' no
+  };
+
 /*! \class DrRobotMotionSensorDriver
  *      This is the main class declare
  *      When using this driver library, user need call construct function DrRobotMotionSensorDriver() first, it will initialize
@@ -192,7 +232,7 @@ namespace DrRobot_MotionSensorDriver
      *        -1 for invalid port number
      *        -2 for invalid ip address
      */
-    void setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig);
+    int setDrRobotMotionDriverConfig(DrRobotMotionConfig* driverConfig);
 
     /*! @brief
     *  This function will return the configuration of the driver

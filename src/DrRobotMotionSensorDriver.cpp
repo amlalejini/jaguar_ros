@@ -33,7 +33,7 @@ DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DrRobotMotionSensorDriver
 
   // Innitializes ip address, port number, etc. to defaults.
   bzero(&_addr, sizeof(_addr));
-  inet_pton(_addr.sin_family,robotConfig->robotIP, &_addr.sin_addr)
+  inet_pton(_addr.sin_family,_robotConfig->robotIP, &_addr.sin_addr);
   _addr.sin_family = AF_INET;
   _addr.sin_port = htons(_robotConfig->portNum);
   _addr_len = sizeof _addr;
@@ -57,7 +57,7 @@ DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::DrRobotMotionSensorDriver
 DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::~DrRobotMotionSensorDriver()
 {
   if (portOpen())
-    ::close();
+    close();
 }
 
 bool DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::portOpen()
@@ -77,7 +77,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::close()
   
   if (_sockfd > 0)
   {
-    close(_sockfd);
+    ::close(_sockfd);
     _sockfd = -1;
   }
   
@@ -96,16 +96,16 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::openNetwork()
 {
   
   // Closes any open sockets
-  ::close()
+  close();
 
   // Allow communications
   _stopComm = false;
 
   // Tries to open the socket
-  if ( ((_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) && (tries<3))
+  if ((_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
   {
-    ::debug_ouput("Couldn't open socket.");
-    return -1
+    debug_ouput("Couldn't open socket.");
+    return -1;
     }
   // Tries to send an acknowledgment message
   _numbytes = sendAck();
@@ -158,7 +158,7 @@ void DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::commWorkingThread(){
     if (_comCnt > COMM_LOST_TH)
     {
       printf("Communication lost, trying to re-establish. IP address: %s, Port: %d \n", _robotConfig->robotIP, _robotConfig->portNum);
-      _comCnt = 0
+      _comCnt = 0;
       }
     }
   }
@@ -560,7 +560,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setDrRobotMotionDrive
     // Clears the bad data, just in case
     bzero(&_addr, sizeof(_addr));
     // Revert to previous valid ip
-    inet_pton(_addr.sin_family,_robotConfig->robotIP, &_addr.sin_addr
+    inet_pton(_addr.sin_family,_robotConfig->robotIP, &_addr.sin_addr);
     return -2;
     }
   // Checks if the port number is valid
