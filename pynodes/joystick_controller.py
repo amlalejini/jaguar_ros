@@ -31,7 +31,7 @@ DEFAULT_REAR_FLIPPER_BTTNS = {"UP":"L1", "DOWN":"LEFT_TRIGGER"}
 
 DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
 DEFAULT_VELOCITY_SMOOTHING_SETTING = False
-SMOOTHING_HISTORY_LEN = 10
+SMOOTHING_HISTORY_LEN = 7                       # Stores number of past commands to use when smoothing velocity control.
 # Motor Settings
 # DEFAULT_MAX_SPEED:
 #   - LINEAR: Max speed in m/s (documented max speed: 5.5km/hr or 1.53m/s)
@@ -200,9 +200,10 @@ class Joystick_Controller(object):
                 angular_history.append(angular_velocity)
                 lin_hist_avg = sum(linear_history) / len(linear_history)
                 ang_hist_avg = sum(angular_history) / len(angular_history)
-
-                twister.linear.x = lin_hist_avg
-                twister.angular.z = ang_hist_avg
+                # Set linear and angular velocities to averge of last X number of velocity commands;
+                #  unless linear or angular velocity is 0.  We want to immediately stop.
+                twister.linear.x = lin_hist_avg if linear_velocity != 0 else linear_velocity
+                twister.angular.z = ang_hist_avg if angular_velocity !=0 else angular_velocity
             else:
                 twister.linear.x = linear_velocity
                 twister.angular.z = angular_velocity
