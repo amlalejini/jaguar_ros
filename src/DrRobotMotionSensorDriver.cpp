@@ -606,7 +606,6 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::readStandardSensorDat
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(CtrlMethod ctrlMethod, const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6, const int time)
 {
   unsigned char msg[255];
-  short tempCmd = 0;
   short tempTime = time;
   if (tempTime <= 0) tempTime = 1;
   msg[0] = COM_STX0;
@@ -626,36 +625,14 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(C
     msg[4] = MOTORPOSITIONCTRLALL;
   }
 
-    msg[5] = 14; // number of data bytes 2*6 motor cmds + 2 time
-  // TODO: Simplify this garbage
-  for (int i = 0; i < 6; i ++)
-  {
-    if (i == 0)
-    {
-      tempCmd = cmd1;
-    }
-    if (i == 1)
-    {
-      tempCmd = cmd2;
-    }
-    if (i == 2)
-    {
-      tempCmd = cmd3;
-    }
-    if (i == 3)
-    {
-      tempCmd = cmd4;
-    }
-    if (i == 4)
-    {
-      tempCmd = cmd5;
-    }
-    if (i == 5)
-    {
-      tempCmd = cmd6;
-    }
-    memcpy(&msg[ 6 + i *2], &tempCmd, sizeof(short));
-  }
+  msg[5] = 14; // number of data bytes 2*6 motor cmds + 2 time
+  // data bytes
+  memcpy(&msg[ 6], &cmd1, sizeof(short));
+  memcpy(&msg[ 8], &cmd2, sizeof(short));
+  memcpy(&msg[10], &cmd3, sizeof(short));
+  memcpy(&msg[12], &cmd4, sizeof(short));
+  memcpy(&msg[14], &cmd5, sizeof(short));
+  memcpy(&msg[16], &cmd6, sizeof(short));
 
   memcpy(&msg[18], &tempTime, sizeof(short));
   msg[20] = CalculateCRC(&msg[2], msg[5] + 4);
@@ -668,56 +645,35 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(C
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlAllCmd(CtrlMethod ctrlMethod, const int cmd1, const int cmd2, const int cmd3, const int cmd4, const int cmd5, const int cmd6)
 {
   unsigned char msg[255];
-   short tempCmd = 0;
-   msg[0] = COM_STX0;
-   msg[1] = COM_STX1;
-   msg[2] = COM_TYPE_MOT;
-   msg[3] = 0;
-   if (ctrlMethod == PWM)
-    {
-      msg[4] = MOTORPWMCTRLALL;
+  msg[0] = COM_STX0;
+  msg[1] = COM_STX1;
+  msg[2] = COM_TYPE_MOT;
+  msg[3] = 0;
+  if (ctrlMethod == PWM)
+  {
+    msg[4] = MOTORPWMCTRLALL;
     }
-    else if(ctrlMethod == Velocity)
-    {
-      msg[4] = MOTORVELOCITYCTRLALL;
-    }
-    else if(ctrlMethod == Position)
-    {
-      msg[4] = MOTORPOSITIONCTRLALL;
-    }
+  else if(ctrlMethod == Velocity)
+  {
+    msg[4] = MOTORVELOCITYCTRLALL;
+  }
+  else if(ctrlMethod == Position)
+  {
+    msg[4] = MOTORPOSITIONCTRLALL;
+  }
 
-    msg[5] = 12;
-   for (int i = 0; i < 6; i ++)
-   {
-     if (i == 0)
-     {
-       tempCmd = cmd1;
-     }
-     if (i == 1)
-     {
-       tempCmd = cmd2;
-     }
-     if (i == 2)
-     {
-       tempCmd = cmd3;
-     }
-     if (i == 3)
-     {
-       tempCmd = cmd4;
-     }
-     if (i == 4)
-     {
-       tempCmd = cmd5;
-     }
-     if (i == 5)
-     {
-       tempCmd = cmd6;
-     }
-     memcpy(&msg[ 6 + i *2], &tempCmd, sizeof(short));
-   }
-   msg[18] = CalculateCRC(&msg[2], msg[5] + 4);
-   msg[19] = COM_ETX0; msg[20] = COM_ETX1;
-   return sendCommand(msg, 21);
+  msg[5] = 12; // number of data bytes
+  // data bytes
+  memcpy(&msg[ 6], &cmd1, sizeof(short));
+  memcpy(&msg[ 8], &cmd2, sizeof(short));
+  memcpy(&msg[10], &cmd3, sizeof(short));
+  memcpy(&msg[12], &cmd4, sizeof(short));
+  memcpy(&msg[14], &cmd5, sizeof(short));
+  memcpy(&msg[16], &cmd6, sizeof(short));
+
+  msg[18] = CalculateCRC(&msg[2], msg[5] + 4);
+  msg[19] = COM_ETX0; msg[20] = COM_ETX1;
+  return sendCommand(msg, 21);
 }
 
 int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(CtrlMethod ctrlMethod, const int channel, const int cmd, const int time)
@@ -742,12 +698,14 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(Ctrl
   {
     msg[4] = MOTORPOSITIONCTRL;
   }
-  msg[5] = 6;
+  msg[5] = 6; // number of data bytes
+  // Data bytes
   msg[6] = (unsigned char)(channel & 0xff);
   msg[7] = (unsigned char)(cmd % 256);
   msg[8] = (unsigned char)(cmd /256);
   msg[9] = TIMEFLAG;
   memcpy(&msg[10], &tempTime, sizeof(short));
+  
   msg[12] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[13] = COM_ETX0; msg[14] = COM_ETX1;
   return sendCommand(msg, 15);
@@ -774,10 +732,12 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendMotorCtrlCmd(Ctrl
   {
     msg[4] = MOTORPOSITIONCTRL;
   }
-  msg[5] = 3;
+  msg[5] = 3; // number of data bytes
+  // data bytes
   msg[6] = (unsigned char)(channel & 0xff);
   msg[7] = (unsigned char)(cmd % 256);
   msg[8] = (unsigned char)(cmd /256);
+
   msg[9] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[10] = COM_ETX0; msg[11] = COM_ETX1;
   return sendCommand(msg, 12);
@@ -788,7 +748,6 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 {
   // TODO: Check if it's even used/needed...
   unsigned char msg[255];
-  short tempCmd = 0;
   short tempTime = time;
   if (tempTime <= 0) tempTime = 1;
   msg[0] = COM_STX0;
@@ -797,37 +756,14 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
   msg[3] = 0;
 
   msg[4] = SERVOCTRLALL;
-  msg[5] = 14;
-
-  for (int i = 0; i < 6; i ++)
-  {
-    if (i == 0)
-    {
-      tempCmd = cmd1;
-    }
-    if (i == 1)
-    {
-      tempCmd = cmd2;
-    }
-    if (i == 2)
-    {
-      tempCmd = cmd3;
-    }
-    if (i == 3)
-    {
-      tempCmd = cmd4;
-    }
-    if (i == 4)
-    {
-      tempCmd = cmd5;
-    }
-    if (i == 5)
-    {
-      tempCmd = cmd6;
-    }
-    memcpy(&msg[ 6 + i *2], &tempCmd, sizeof(short));
-
-  }
+  msg[5] = 14; // number of data bytes
+  // data bytes
+  memcpy(&msg[ 6], &cmd1, sizeof(short));
+  memcpy(&msg[ 8], &cmd2, sizeof(short));
+  memcpy(&msg[10], &cmd3, sizeof(short));
+  memcpy(&msg[12], &cmd4, sizeof(short));
+  memcpy(&msg[14], &cmd5, sizeof(short));
+  memcpy(&msg[16], &cmd6, sizeof(short));
 
   
   memcpy(&msg[18], &tempTime, sizeof(short));
@@ -841,44 +777,21 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlAllCmd(c
 {
   // TODO: Check if it's even used/needed...
   unsigned char msg[255];
-  short tempCmd = 0;
   msg[0] = COM_STX0;
   msg[1] = COM_STX1;
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
 
   msg[4] = SERVOCTRLALL;
-  msg[5] = 12;
+  msg[5] = 12; // number of data bytes
+  // data bytes
+  memcpy(&msg[ 6], &cmd1, sizeof(short));
+  memcpy(&msg[ 8], &cmd2, sizeof(short));
+  memcpy(&msg[10], &cmd3, sizeof(short));
+  memcpy(&msg[12], &cmd4, sizeof(short));
+  memcpy(&msg[14], &cmd5, sizeof(short));
+  memcpy(&msg[16], &cmd6, sizeof(short));
 
-  for (int i = 0; i < 6; i ++)
-  {
-   if (i == 0)
-   {
-     tempCmd = cmd1;
-   }
-   if (i == 1)
-   {
-     tempCmd = cmd2;
-   }
-   if (i == 2)
-   {
-     tempCmd = cmd3;
-   }
-   if (i == 3)
-   {
-     tempCmd = cmd4;
-   }
-   if (i == 4)
-   {
-     tempCmd = cmd5;
-   }
-   if (i == 5)
-   {
-     tempCmd = cmd6;
-   }
-   memcpy(&msg[ 6 + i *2], &tempCmd, sizeof(short));
-
-  }
   msg[18] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[19] = COM_ETX0; msg[20] = COM_ETX1;
   return sendCommand(msg, 21);
@@ -897,12 +810,14 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
 
   msg[4] = SERVOCTRL;
 
-  msg[5] = 6;
+  msg[5] = 6; // number of data bytes
+  // data bytes
   msg[6] = (unsigned char)(channel & 0xff);
   msg[7] = (unsigned char)(cmd % 256);
   msg[8] = (unsigned char)(cmd /256);
   msg[9] = TIMEFLAG;
   memcpy(&msg[10], &tempTime, sizeof(short));
+
   msg[12] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[13] = COM_ETX0; msg[14] = COM_ETX1;
   return sendCommand(msg, 15);
@@ -918,10 +833,12 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::sendServoCtrlCmd(cons
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
   msg[4] = SERVOCTRL;
-  msg[5] = 3;
+  msg[5] = 3; // number of data bytes
+  // data bytes
   msg[6] = (unsigned char)(channel & 0xff);
   msg[7] = (unsigned char)(cmd % 256);
   msg[8] = (unsigned char)(cmd /256);
+
   msg[9] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[10] = COM_ETX0; msg[11] = COM_ETX1;
   return sendCommand(msg, 12);
@@ -938,7 +855,8 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableMotorCmd(const
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
   msg[4] = MOTORENABLE;
-  msg[5] = 2;
+  msg[5] = 2; // number of data bytes
+  // data bytes
   msg[6] = 0;
   msg[7] = (unsigned char)(channel & 0x0ff);
 
@@ -958,7 +876,8 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::disableServoCmd(const
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
   msg[4] = MOTORENABLE;
-  msg[5] = 2;
+  msg[5] = 2; // number of data bytes
+  // data bytes
   msg[6] = 0;
   msg[7] = (unsigned char)( (channel & 0x0ff) + 6);
 
@@ -978,7 +897,8 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlP
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
   msg[4] = MOTORPARAMETERSETTING;
-  msg[5] = 11;
+  msg[5] = 11; // number of data bytes
+  // data bytes
   msg[6] = POSITIONPID;
   msg[7] = (unsigned char)(channel & 0x0ff);
   msg[8] = KP_ID;
@@ -987,6 +907,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorPositionCtrlP
   memcpy(&msg[12],&kd, sizeof(short));
   msg[14] = KI_ID;
   memcpy(&msg[15],&ki, sizeof(short));
+
   msg[17] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[18] = COM_ETX0; msg[19] = COM_ETX1;
   return sendCommand(msg, 20);
@@ -1004,7 +925,8 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlP
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
   msg[4] = MOTORPARAMETERSETTING;
-  msg[5] = 11;
+  msg[5] = 11; // number of data bytes
+  // data bytes
   msg[6] = VELOCITYPID;
   msg[7] = (unsigned char)(channel & 0x0ff);
   msg[8] = KP_ID;
@@ -1013,6 +935,7 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorVelocityCtrlP
   memcpy(&msg[12],&kd, sizeof(short));
   msg[14] = KI_ID;
   memcpy(&msg[15],&ki, sizeof(short));
+
   msg[17] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[18] = COM_ETX0; msg[19] = COM_ETX1;
   return sendCommand(msg, 20);
@@ -1028,8 +951,8 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setMotorFricCompensat
   msg[3] = 0;
 
   msg[4] = MOTORFRICCOMP;
-  msg[5] = 12;
-
+  msg[5] = 12; // number of data bytes
+  // data bytes
   memcpy(&msg[6], &cmd1, sizeof(short));
   memcpy(&msg[8], &cmd2, sizeof(short));
   memcpy(&msg[10], &cmd3, sizeof(short));
@@ -1052,8 +975,10 @@ int DrRobot_MotionSensorDriver::DrRobotMotionSensorDriver::setCustomIO(const int
   msg[2] = COM_TYPE_MOT;
   msg[3] = 0;
   msg[4] = CUSTOMIO;
-  msg[5] = 1;
+  msg[5] = 1; // number of data bytes
+  // data bytes
   msg[6] = (unsigned char)(cmd & 0x0000ff);
+
   msg[7] = CalculateCRC(&msg[2], msg[5] + 4);
   msg[8] = COM_ETX0; msg[9] = COM_ETX1;
   return sendCommand(msg, 10);
