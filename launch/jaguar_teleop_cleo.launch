@@ -1,0 +1,22 @@
+<launch>
+
+    <rosparam command="load" file="$(find jaguar_ros)/param/controller_config.yaml" />
+    
+    <rosparam command="load" file="$(find jaguar_ros)/param/robot_cleo.yaml" />
+    
+    <rosparam command="load" file="$(find jaguar_ros)/param/axis_cam_config_cleo.yaml" />
+
+    <node name="imu_reporter" pkg="jaguar_ros" type="imu_reporter.py" output="screen" />
+
+    <node name="gps_reporter" pkg="jaguar_ros" type="gps_reporter.py"/>
+
+    <node name="jaguar_player" pkg="jaguar_ros" type="jaguar_player" output="screen"/>
+
+    <node name="joystick" pkg="joy" type="joy_node"/>
+    
+    <node pkg="jaguar_ros" type="joystick_controller.py" output="screen" name="joystick_controller"/>
+    
+    <node pkg="jaguar_ros" type="axis.py" output="screen" name="axis_driver"/>
+
+    
+</launch>

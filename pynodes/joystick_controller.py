@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import rospy, copy, math
+import rospy, copy, math, numpy
 from utils import *
 from threading import Lock
 from geometry_msgs.msg import Twist
@@ -26,9 +26,12 @@ __authors__ = ["Alex Lalejini"]
 DEFAULT_LINEAR_AXIS = "LEFT_STICK_VERTICAL"
 DEFAULT_ANGULAR_AXIS = "LEFT_STICK_HORIZONTAL"
 DEFAULT_HEADLIGHT_BTTN = "Y"
-DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
 DEFAULT_FRONT_FLIPPER_BTTNS = {"UP":"R1", "DOWN":"RIGHT_TRIGGER"}
 DEFAULT_REAR_FLIPPER_BTTNS = {"UP":"L1", "DOWN":"LEFT_TRIGGER"}
+
+DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
+DEFAULT_VELOCITY_SMOOTHING_SETTING = False
+SMOOTHING_HISTORY_LEN = 7                       # Stores number of past commands to use when smoothing velocity control.
 # Motor Settings
 # DEFAULT_MAX_SPEED:
 #   - LINEAR: Max speed in m/s (documented max speed: 5.5km/hr or 1.53m/s)
@@ -56,15 +59,16 @@ class Joystick_Controller(object):
         self.prev_joy = Joy()  # Stores previous joy message (useful for sequence related commands)
 
         # Load some controller parameters
-        self.linear_axis = rospy.get_param("controller_settings/linear_axis", DEFAULT_LINEAR_AXIS) # Default value
-        self.angular_axis = rospy.get_param("controller_settings/angular_axis", DEFAULT_ANGULAR_AXIS) 
-        self.headlight_bttn = rospy.get_param("controller_settings/headlight_bttn", DEFAULT_HEADLIGHT_BTTN)
-        self.front_flipper_up_bttn = rospy.get_param("controller_settings/front_flipper_up_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["UP"])
-        self.front_flipper_down_bttn = rospy.get_param("controller_settings/front_flipper_down_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["DOWN"])
-        self.rear_flipper_up_bttn = rospy.get_param("controller_settings/rear_flipper_up_bttn", DEFAULT_REAR_FLIPPER_BTTNS["UP"])
-        self.rear_flipper_down_bttn = rospy.get_param("controller_settings/rear_flipper_down_bttn", DEFAULT_REAR_FLIPPER_BTTNS["DOWN"])        
+        self.linear_axis = rospy.get_param("controller_settings/controller_mappings/linear_axis", DEFAULT_LINEAR_AXIS) # Default value
+        self.angular_axis = rospy.get_param("controller_settings/controller_mappings/angular_axis", DEFAULT_ANGULAR_AXIS) 
+        self.headlight_bttn = rospy.get_param("controller_settings/controller_mappings/headlight_bttn", DEFAULT_HEADLIGHT_BTTN)
+        self.front_flipper_up_bttn = rospy.get_param("controller_settings/controller_mappings/front_flipper_up_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["UP"])
+        self.front_flipper_down_bttn = rospy.get_param("controller_settings/controller_mappings/front_flipper_down_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["DOWN"])
+        self.rear_flipper_up_bttn = rospy.get_param("controller_settings/controller_mappings/rear_flipper_up_bttn", DEFAULT_REAR_FLIPPER_BTTNS["UP"])
+        self.rear_flipper_down_bttn = rospy.get_param("controller_settings/controller_mappings/rear_flipper_down_bttn", DEFAULT_REAR_FLIPPER_BTTNS["DOWN"])        
 
-        self.axis_slop_thresh = rospy.get_param("controller_settings/slop", DEFAULT_CONTROLLER_AXIS_SLOP)
+        self.axis_slop_thresh = rospy.get_param("controller_settings/axis_slop", DEFAULT_CONTROLLER_AXIS_SLOP)
+        self.velocity_smoothing = rospy.get_param("controller_settings/velocity_smoothing", DEFAULT_VELOCITY_SMOOTHING_SETTING)
 
         self._check_controller_settings()
         
@@ -164,6 +168,9 @@ class Joystick_Controller(object):
         rospy.wait_for_message(self.joy_topic, Joy)
         # create target rate to attempt to keep run loop at (10hz is good)
         rate = rospy.Rate(10)
+        # Create variables needed for velocity smoothing
+        linear_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
+        angular_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
         while not rospy.is_shutdown():
             # safely grab most recent joy message
             joy = None
@@ -185,8 +192,21 @@ class Joystick_Controller(object):
                 angular_velocity = angular_val * self.max_angular_speed # radians/sec
             # Build Twist message
             twister = Twist()
-            twister.linear.x = linear_velocity
-            twister.angular.z = angular_velocity
+
+            if self.velocity_smoothing:
+                linear_history.pop(0)
+                angular_history.pop(0)
+                linear_history.append(linear_velocity)
+                angular_history.append(angular_velocity)
+                lin_hist_avg = sum(linear_history) / len(linear_history)
+                ang_hist_avg = sum(angular_history) / len(angular_history)
+                # Set linear and angular velocities to averge of last X number of velocity commands;
+                #  unless linear or angular velocity is 0.  We want to immediately stop.
+                twister.linear.x = lin_hist_avg if linear_velocity != 0 else linear_velocity
+                twister.angular.z = ang_hist_avg if angular_velocity !=0 else angular_velocity
+            else:
+                twister.linear.x = linear_velocity
+                twister.angular.z = angular_velocity
             # Publish twist message
             self.drive_cmds_pub.publish(twister)
             ###############################
