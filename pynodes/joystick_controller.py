@@ -169,7 +169,8 @@ class Joystick_Controller(object):
         # create target rate to attempt to keep run loop at (10hz is good)
         rate = rospy.Rate(10)
         # Create variables needed for velocity smoothing
-        #linear_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
+        linear_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
+        angular_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
         while not rospy.is_shutdown():
             # safely grab most recent joy message
             joy = None
@@ -191,8 +192,20 @@ class Joystick_Controller(object):
                 angular_velocity = angular_val * self.max_angular_speed # radians/sec
             # Build Twist message
             twister = Twist()
-            twister.linear.x = linear_velocity
-            twister.angular.z = angular_velocity
+
+            if self.velocity_smoothing:
+                linear_history.pop(0)
+                angular_history.pop(0)
+                linear_history.append(linear_velocity)
+                angular_history.append(angular_velocity)
+                lin_hist_avg = sum(linear_history) / len(linear_history)
+                ang_hist_avg = sum(angular_history) / len(angular_history)
+
+                twister.linear.x = lin_hist_avg
+                twister.angular.z = ang_hist_avg
+            else:
+                twister.linear.x = linear_velocity
+                twister.angular.z = angular_velocity
             # Publish twist message
             self.drive_cmds_pub.publish(twister)
             ###############################
