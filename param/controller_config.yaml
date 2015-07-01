@@ -9,5 +9,5 @@ controller_settings:
         rear_flipper_up_bttn: L1
         rear_flipper_down_bttn: LEFT_TRIGGER
     axis_slop: 0.075  # slop threshold to treat as 0
-    velocity_smoothing: True  
+    velocity_smoothing: True
     
