@@ -31,7 +31,7 @@ DEFAULT_REAR_FLIPPER_BTTNS = {"UP":"L1", "DOWN":"LEFT_TRIGGER"}
 
 DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
 DEFAULT_VELOCITY_SMOOTHING_SETTING = False
-SMOOTHING_HISTORY_LEN = 5
+SMOOTHING_HISTORY_LEN = 7                       # Stores number of past commands to use when smoothing velocity control.
 # Motor Settings
 # DEFAULT_MAX_SPEED:
 #   - LINEAR: Max speed in m/s (documented max speed: 5.5km/hr or 1.53m/s)
