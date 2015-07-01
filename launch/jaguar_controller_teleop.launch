@@ -1,0 +1,10 @@
+<launch>
+
+    <rosparam command="load" file="$(find jaguar_ros)/param/controller_config.yaml" />
+
+    <node name="joystick" pkg="joy" type="joy_node"/>
+    
+    <node pkg="jaguar_ros" type="joystick_controller.py" output="screen" name="joystick_controller"/>
+
+    
+</launch>
