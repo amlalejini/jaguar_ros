@@ -28,10 +28,11 @@ DEFAULT_ANGULAR_AXIS = "LEFT_STICK_HORIZONTAL"
 DEFAULT_HEADLIGHT_BTTN = "Y"
 DEFAULT_FRONT_FLIPPER_BTTNS = {"UP":"R1", "DOWN":"RIGHT_TRIGGER"}
 DEFAULT_REAR_FLIPPER_BTTNS = {"UP":"L1", "DOWN":"LEFT_TRIGGER"}
+DEFAULT_FINE_LINEAR_AXIS = "RIGHT_STICK_VERTICAL"
+DEFAULT_FINE_ANGULAR_AXIS = "RIGHT_STICK_HORIZONTAL"
 
 DEFAULT_CONTROLLER_AXIS_SLOP = 0.05
-DEFAULT_VELOCITY_SMOOTHING_SETTING = False
-SMOOTHING_HISTORY_LEN = 7                       # Stores number of past commands to use when smoothing velocity control.
+DEFAULT_FINE_CONTROL_PERCENT = 10
 # Motor Settings
 # DEFAULT_MAX_SPEED:
 #   - LINEAR: Max speed in m/s (documented max speed: 5.5km/hr or 1.53m/s)
@@ -66,9 +67,11 @@ class Joystick_Controller(object):
         self.front_flipper_down_bttn = rospy.get_param("controller_settings/controller_mappings/front_flipper_down_bttn", DEFAULT_FRONT_FLIPPER_BTTNS["DOWN"])
         self.rear_flipper_up_bttn = rospy.get_param("controller_settings/controller_mappings/rear_flipper_up_bttn", DEFAULT_REAR_FLIPPER_BTTNS["UP"])
         self.rear_flipper_down_bttn = rospy.get_param("controller_settings/controller_mappings/rear_flipper_down_bttn", DEFAULT_REAR_FLIPPER_BTTNS["DOWN"])        
+        self.fine_linear_axis = rospy.get_param("controller_settings/controller_mappings/fine_linear_axis", DEFAULT_FINE_LINEAR_AXIS)
+        self.fine_angular_axis = rospy.get_param("controller_settings/controller_mappings/fine_angular_axis", DEFAULT_FINE_ANGULAR_AXIS)
 
         self.axis_slop_thresh = rospy.get_param("controller_settings/axis_slop", DEFAULT_CONTROLLER_AXIS_SLOP)
-        self.velocity_smoothing = rospy.get_param("controller_settings/velocity_smoothing", DEFAULT_VELOCITY_SMOOTHING_SETTING)
+        self.fine_control_percent = rospy.get_param("controller_settings/fine_control_percent", DEFAULT_FINE_CONTROL_PERCENT)
 
         self._check_controller_settings()
         
@@ -168,9 +171,7 @@ class Joystick_Controller(object):
         rospy.wait_for_message(self.joy_topic, Joy)
         # create target rate to attempt to keep run loop at (10hz is good)
         rate = rospy.Rate(10)
-        # Create variables needed for velocity smoothing
-        linear_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
-        angular_history = [0 for i in xrange(0, SMOOTHING_HISTORY_LEN)]
+
         while not rospy.is_shutdown():
             # safely grab most recent joy message
             joy = None
@@ -180,33 +181,36 @@ class Joystick_Controller(object):
             ###############################
             # Get drive command
             ###############################
+
             linear_val = joy.axes[LOGITECH_AXES[self.linear_axis]]      # will be value between -1.0 and 1.0
             angular_val = joy.axes[LOGITECH_AXES[self.angular_axis]]    # will be value between -1.0 and 1.0
+
+            fine_linear_val = joy.axes[LOGITECH_AXES[self.fine_linear_axis]]
+            fine_angular_val = joy.axes[LOGITECH_AXES[self.fine_angular_axis]]
+
+
             # Calculate velocities
             linear_velocity = 0
             angular_velocity = 0
-            # make sure values aren't within axis slop threshold
+            # make sure values aren't within axis slop threshold and determine if using normal (default) or fine control
             if not ((linear_val <= self.axis_slop_thresh) and (linear_val >= -self.axis_slop_thresh)):
+                # normal control axis is in use
                 linear_velocity = linear_val * self.max_linear_speed    # m/s
+            elif not ((fine_linear_val <= self.axis_slop_thresh) and (fine_linear_val >= -self.axis_slop_thresh)):
+                # fine control axis is in use
+                linear_velocity = fine_linear_val * (self.fine_control_percent * 0.01) * self.max_linear_speed
+
             if not ((angular_val <= self.axis_slop_thresh) and (angular_val >= -self.axis_slop_thresh)):
+                # normal control axis is in use
                 angular_velocity = angular_val * self.max_angular_speed # radians/sec
+            elif not ((fine_angular_val <= self.axis_slop_thresh) and (fine_angular_val >= -self.axis_slop_thresh)):
+                # fine control axis is in use
+                angular_velocity = fine_angular_val * (self.fine_control_percent * 0.01) * self.max_angular_speed
+
             # Build Twist message
             twister = Twist()
-
-            if self.velocity_smoothing:
-                linear_history.pop(0)
-                angular_history.pop(0)
-                linear_history.append(linear_velocity)
-                angular_history.append(angular_velocity)
-                lin_hist_avg = sum(linear_history) / len(linear_history)
-                ang_hist_avg = sum(angular_history) / len(angular_history)
-                # Set linear and angular velocities to averge of last X number of velocity commands;
-                #  unless linear or angular velocity is 0.  We want to immediately stop.
-                twister.linear.x = lin_hist_avg if linear_velocity != 0 else linear_velocity
-                twister.angular.z = ang_hist_avg if angular_velocity !=0 else angular_velocity
-            else:
-                twister.linear.x = linear_velocity
-                twister.angular.z = angular_velocity
+            twister.linear.x = linear_velocity
+            twister.angular.z = angular_velocity
             # Publish twist message
             self.drive_cmds_pub.publish(twister)
             ###############################
