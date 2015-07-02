@@ -1,4 +1,3 @@
-jag_axis_cam:
-    hostname: 192.168.0.65:8081
-    username: root
-    password: drrobot
+hostname: 192.168.0.65:8081
+username: root
+password: drrobot
