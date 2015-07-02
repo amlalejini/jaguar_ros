@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import rospy, copy, math, numpy
+import rospy, copy, math
 from utils import *
 from threading import Lock
 from geometry_msgs.msg import Twist
@@ -11,10 +11,6 @@ from std_msgs.msg import Bool, Float32
 This module listens for joy messages and interprets those messages 
  into the necessary commands for command of the Jaguar robot.
 
-MODULE TODO LIST:
- - velocity smoothing option? (see aries code)
- - all stop command from controller
- - Controller parameter (logitech, xbox, etc)
 '''
 
 __authors__ = ["Alex Lalejini"]

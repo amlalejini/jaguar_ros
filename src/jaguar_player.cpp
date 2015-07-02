@@ -59,6 +59,8 @@ int DEFAULT_STARTBOARD_DRIVE_ID = 4;
 // Sensor Constants
 //   - Motion board sensor
 int DEFAULT_MOTION_BOARD_HEAT_SENSOR_CNT = 0;
+//   - Battery
+double DEFAULT_MIN_BATTERY_VOLTAGE = 22.5;
 ////////////////////////////////////////////////////////
 
 class JaguarPlayer {
@@ -118,6 +120,11 @@ private:
     struct MotorSensorData motor_sensor_data; // documented in DrRobotMotionSensorDriver.hpp
     struct StandardSensorData standard_sensor_data;
     struct CustomSensorData custom_sensor_data;
+    // Battery parameters
+    double mininum_battery_voltage;
+    double current_battery_voltage;
+    // Operation checks
+    bool batteryCheck(void);
 
     void connect(void);
     void update(void);
@@ -166,6 +173,8 @@ JaguarPlayer::JaguarPlayer() {
     node_handle.param<int>("motors/ids/starboard_drive", motor_ids["STARBOARD_DRIVE"], DEFAULT_STARTBOARD_DRIVE_ID);
     // - Load sensor constants
     node_handle.param<int>("sensors/motion_board/heat_sensor_cnt", motion_board_heat_sensor_cnt, DEFAULT_MOTION_BOARD_HEAT_SENSOR_CNT);
+    // - Load battery constant
+    node_handle.param<double>("battery/min_voltage", mininum_battery_voltage, DEFAULT_MIN_BATTERY_VOLTAGE);
     ///////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////
@@ -189,6 +198,8 @@ JaguarPlayer::JaguarPlayer() {
     ///////////////////////////////////////////////////////    
     // - Connect to robot
     connect();
+    // - Initialize battery voltage
+    current_battery_voltage = -1; // No reading yet
     ///////////////////////////////////////////////////////
     // Setup ROS Publishers
     ///////////////////////////////////////////////////////
@@ -277,6 +288,13 @@ double JaguarPlayer::drrobotRawMotorTemperatureToCelsius(double adValue) {
     }
     // I'm so sorry you had to read through that.
     return tempM;
+}
+
+bool JaguarPlayer::batteryCheck() {
+
+    bool all_good = current_battery_voltage >= mininum_battery_voltage;
+    if (!all_good) ROS_INFO("WARNING: BATTERY VOLTAGE BELOW MINIMUM OPERATING VOLTAGE");
+    return all_good;
 }   
 
 void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
@@ -294,7 +312,7 @@ void JaguarPlayer::driveVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
      if (rotPWM > 32767) rotPWM = 32767;
      if (rotPWM < 0) rotPWM = 0;
      // Send PWM commands to drivetrain motors
-     jaguar_driver->sendMotorCtrlAllCmd(PWM, NOCONTROL, NOCONTROL, NOCONTROL, linPWM, rotPWM, NOCONTROL);
+     if (batteryCheck()) jaguar_driver->sendMotorCtrlAllCmd(PWM, NOCONTROL, NOCONTROL, NOCONTROL, linPWM, rotPWM, NOCONTROL);
     
      // Velocity control (DOES NOT WORK...)
      //jaguar_driver->sendMotorCtrlAllCmd(Velocity, NOCONTROL, NOCONTROL, NOCONTROL, lin_vel, rot_vel, NOCONTROL);
@@ -312,7 +330,7 @@ void JaguarPlayer::frontFlipperCallback(const std_msgs::Float32::ConstPtr& msg) 
     if (flipperPWM < 0) flipperPWM = 0;
     // send PWM commands to flipper motors
     // TODO: switch this from all command to just single command
-    jaguar_driver->sendMotorCtrlAllCmd(PWM, flipperPWM, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL);
+    if (batteryCheck()) jaguar_driver->sendMotorCtrlAllCmd(PWM, flipperPWM, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL);
     
 }
 
@@ -328,7 +346,7 @@ void JaguarPlayer::rearFlipperCallback(const std_msgs::Float32::ConstPtr& msg) {
     if (flipperPWM < 0) flipperPWM = 0;
     // send PWM commands to flipper motors
     // TODO: switch this from all command to just single command
-    jaguar_driver->sendMotorCtrlAllCmd(PWM, NOCONTROL, flipperPWM, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL);
+    if (batteryCheck()) jaguar_driver->sendMotorCtrlAllCmd(PWM, NOCONTROL, flipperPWM, NOCONTROL, NOCONTROL, NOCONTROL, NOCONTROL);
 }
 
 void JaguarPlayer::headlightCallback(const std_msgs::Bool::ConstPtr& msg) {
@@ -441,7 +459,7 @@ void JaguarPlayer::update() {
         // AD6 – right front motor temperature
         // AD7 – rear flip motor temperature
         // get battery voltage and convert from raw to voltage
-        double battery_voltage = ((double)custom_sensor_data.customADData[1]) / 4095 * 34.498;
+        current_battery_voltage = ((double)custom_sensor_data.customADData[1]) / 4095 * 34.498;
         // get motor temperatures and convert from raw to celsius
         double left_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[2]);
         double right_rear_drive_motor_temp = drrobotRawMotorTemperatureToCelsius((double)custom_sensor_data.customADData[3]);
@@ -455,7 +473,7 @@ void JaguarPlayer::update() {
         // Publish Battery voltage 
         jaguar_ros::JaguarBatteryInfo battery_info_msg;
         battery_info_msg.header.stamp = custom_sensor_time;
-        battery_info_msg.voltage = battery_voltage;
+        battery_info_msg.voltage = current_battery_voltage;
         // publish battery info
         battery_info_pub.publish(battery_info_msg);
         ///////////////////////////////////////////////////////////////////

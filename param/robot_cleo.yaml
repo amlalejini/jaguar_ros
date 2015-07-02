@@ -32,8 +32,11 @@ sensors:
         heat_sensor_cnt: 2
     battery:
         topic: jaguar_battery_info
+battery:
+    min_voltage: 22.5  # Minimum operating voltage.
 robot_control_topics:
     drive_control: cmd_vel
     front_flipper_control: front_flipper_cmds
     rear_flipper_control: rear_flipper_cmds
     headlight_control: headlight_cmds
+    estop_control: jaguar_estop_cmds
