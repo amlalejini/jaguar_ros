@@ -4,7 +4,7 @@ controller_settings:
         linear_axis: LEFT_STICK_VERTICAL
         angular_axis: LEFT_STICK_HORIZONTAL
         fine_linear_axis: RIGHT_STICK_VERTICAL      # This control provides fine grained control over linear movement
-        fine_angular_axis: RIGHTS_STICK_HORIZONTAL    # This control provides fine grained control over angular movement
+        fine_angular_axis: RIGHT_STICK_HORIZONTAL    # This control provides fine grained control over angular movement
         headlight_bttn: Y
         front_flipper_up_bttn: R1
         front_flipper_down_bttn: RIGHT_TRIGGER
