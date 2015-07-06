@@ -3,11 +3,13 @@ controller_settings:
     controller_mappings:
         linear_axis: LEFT_STICK_VERTICAL
         angular_axis: LEFT_STICK_HORIZONTAL
+        fine_linear_axis: RIGHT_STICK_VERTICAL      # This control provides fine grained control over linear movement
+        fine_angular_axis: RIGHT_STICK_HORIZONTAL    # This control provides fine grained control over angular movement
         headlight_bttn: Y
         front_flipper_up_bttn: R1
         front_flipper_down_bttn: RIGHT_TRIGGER
         rear_flipper_up_bttn: L1
         rear_flipper_down_bttn: LEFT_TRIGGER
     axis_slop: 0.075  # slop threshold to treat as 0
-    velocity_smoothing: True  
-    
+    fine_control_percent: 20 # percent of robot's max speed fine control uses
+

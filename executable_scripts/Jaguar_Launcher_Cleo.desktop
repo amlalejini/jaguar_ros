@@ -1,0 +1,11 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=true
+Icon[en_US]=gnome-panel-launcher
+Name[en_US]=Jaguar_Launcher_Cleo
+Exec=/home/stars5/Desktop/Jaguar_Cleo_Launch.sh
+Name=Cleo_Launcher
+Icon=gnome-panel-launcher
