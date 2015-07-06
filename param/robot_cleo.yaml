@@ -34,6 +34,7 @@ sensors:
         topic: jaguar_battery_info
 battery:
     min_voltage: 22.5  # Minimum operating voltage.
+    max_voltage: 25.2  # Maximum operating Voltage.
 robot_control_topics:
     drive_control: cmd_vel
     front_flipper_control: front_flipper_cmds

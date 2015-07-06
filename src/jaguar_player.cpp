@@ -61,6 +61,7 @@ int DEFAULT_STARTBOARD_DRIVE_ID = 4;
 int DEFAULT_MOTION_BOARD_HEAT_SENSOR_CNT = 0;
 //   - Battery
 double DEFAULT_MIN_BATTERY_VOLTAGE = 22.5;
+double DEFAULT_MAX_BATTERY_VOLTAGE = 25.2;
 ////////////////////////////////////////////////////////
 
 class JaguarPlayer {
@@ -123,6 +124,8 @@ private:
     // Battery parameters
     double mininum_battery_voltage;
     double current_battery_voltage;
+    double maximum_battery_voltage;
+    double voltage_range;
     // Operation checks
     bool batteryCheck(void);
 
@@ -175,6 +178,7 @@ JaguarPlayer::JaguarPlayer() {
     node_handle.param<int>("sensors/motion_board/heat_sensor_cnt", motion_board_heat_sensor_cnt, DEFAULT_MOTION_BOARD_HEAT_SENSOR_CNT);
     // - Load battery constant
     node_handle.param<double>("battery/min_voltage", mininum_battery_voltage, DEFAULT_MIN_BATTERY_VOLTAGE);
+    node_handle.param<double>("battery/max_voltage", maximum_battery_voltage, DEFAULT_MAX_BATTERY_VOLTAGE);
     ///////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////
@@ -199,6 +203,7 @@ JaguarPlayer::JaguarPlayer() {
     // - Connect to robot
     connect();
     // - Initialize battery voltage
+    voltage_range = maximum_battery_voltage - mininum_battery_voltage;
     current_battery_voltage = -1; // No reading yet
     ///////////////////////////////////////////////////////
     // Setup ROS Publishers
@@ -474,6 +479,9 @@ void JaguarPlayer::update() {
         jaguar_ros::JaguarBatteryInfo battery_info_msg;
         battery_info_msg.header.stamp = custom_sensor_time;
         battery_info_msg.voltage = current_battery_voltage;
+        battery_info_msg.percentage = 
+            (current_battery_voltage - mininum_battery_voltage)
+                / voltage_range;
         // publish battery info
         battery_info_pub.publish(battery_info_msg);
         ///////////////////////////////////////////////////////////////////
