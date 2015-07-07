@@ -46,6 +46,19 @@ class GPS_Reporter(object):
         self.gps_port = rospy.get_param("sensors/gps/port", DEFAULT_GPS_PORT)
         # Create GPS comms socket (TCP communication protocol)
         self.gps_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.gps_sock.settimeout(2.0)
+        # Attempt to connect 
+        self.connect()
+
+        # Load topic name(s)
+        self.gps_topic = rospy.get_param("sensors/gps/topic", DEFAULT_GPS_TOPIC)
+        # Create necessary ROS publishers
+        self.gps_pub = rospy.Publisher(self.gps_topic, NavSatFix)#, queue_size = 10)
+
+    def connect(self):
+        '''
+        This function attempts to connect to the GPS
+        '''
         # Attempt to connect
         rospy.loginfo("Trying to connect to GPS at " + str(self.gps_ip) + " on port " + str(self.gps_port))
         while not rospy.is_shutdown():
@@ -57,11 +70,7 @@ class GPS_Reporter(object):
             else:
                 rospy.loginfo("Successfully connected to GPS.")
                 break
-
-        # Load topic name(s)
-        self.gps_topic = rospy.get_param("sensors/gps/topic", DEFAULT_GPS_TOPIC)
-        # Create necessary ROS publishers
-        self.gps_pub = rospy.Publisher(self.gps_topic, NavSatFix)#, queue_size = 10)
+        
 
     def parse_gps(self, data):
         '''
@@ -71,8 +80,6 @@ class GPS_Reporter(object):
         # use regex to parse
         gpgga_hit = re.search('^\$(GPGGA.+?)\r\n', data)
         gprmc_hit = re.search('^\$(GPRMC.+?)\r\n', data)
-        print("=====")
-        print(data)
 
         if gprmc_hit:
             # Get estimated heading (not part of standard ROS navsatfix message)
@@ -131,9 +138,21 @@ class GPS_Reporter(object):
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             # Grab a chunk of data
-            data = self.gps_sock.recv(BUFFER)
-            gps_msg = self.parse_gps(data)
-            if gps_msg: self.gps_pub.publish(gps_msg)
+            try:
+                data = self.gps_sock.recv(BUFFER)
+            except socket.timeout:
+                # Socket timed out
+                # Close socket
+                self.gps_sock.close()
+                # Create new gps socket
+                self.gps_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.gps_sock.settimeout(2.0)
+                rospy.loginfo("GPS Socket timed out.  Attempting to reconnect.")
+                # Reconnect
+                self.connect()
+            else:
+                gps_msg = self.parse_gps(data)
+                if gps_msg: self.gps_pub.publish(gps_msg)
             rate.sleep()
 
     def _exit_handler(self):
