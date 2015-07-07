@@ -7,7 +7,7 @@
 
         <node name="imu_reporter" pkg="jaguar_ros" type="imu_reporter.py" output="screen" />
 
-        <node name="gps_reporter" pkg="jaguar_ros" type="gps_reporter.py"/>
+        <node name="gps_reporter" pkg="jaguar_ros" type="gps_reporter.py" output="screen"/>
 
         <node name="jaguar_player" pkg="jaguar_ros" type="jaguar_player" output="screen"/>
 
