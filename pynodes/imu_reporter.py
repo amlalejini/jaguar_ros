@@ -49,7 +49,19 @@ class IMU_Reporter(object):
         self.imu_port = rospy.get_param("sensors/imu/port", DEFAULT_IMU_PORT)
         # Create IMU comms socket (TCP communication protocol)
         self.imu_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.imu_sock.settimeout(2.0)
         # Attempt to connect
+        self.connect()
+
+        # Load topic name(s)
+        self.imu_topic = rospy.get_param("sensors/imu/topic", DEFAULT_IMU_TOPIC)
+        # Create necessary ROS publishers
+        self.imu_pub = rospy.Publisher(self.imu_topic, Imu)#, queue_size = 10)
+    
+    def connect(self):
+        '''
+        This function attempts to connect to the IMU 
+        '''
         rospy.loginfo("Trying to connect to IMU at " + str(self.imu_ip) + " on port " + str(self.imu_port))
         while not rospy.is_shutdown():
             try:
@@ -61,11 +73,7 @@ class IMU_Reporter(object):
                 rospy.loginfo("Successfully connected to IMU.")
                 break
 
-        # Load topic name(s)
-        self.imu_topic = rospy.get_param("sensors/imu/topic", DEFAULT_IMU_TOPIC)
-        # Create necessary ROS publishers
-        self.imu_pub = rospy.Publisher(self.imu_topic, Imu)#, queue_size = 10)
-    
+
     def sign_of(self, num):
         '''
         Given number, return 1 if number is positive, -1 if negative.
@@ -199,11 +207,23 @@ class IMU_Reporter(object):
         '''
         rate = rospy.Rate(75)  # The magnetometer data gets updated at ~50hz, other sensors on IMU update much faster.
         while not rospy.is_shutdown():
-            # Grab a chunk of data
-            data = self.imu_sock.recv(BUFFER)
-            # Publish message
-            imu_msg = self.parse_imu(data)
-            if imu_msg: self.imu_pub.publish(imu_msg)
+            try:
+                # Grab a chunk of data
+                data = self.imu_sock.recv(BUFFER)
+            except socket.timeout:
+                # socket timed out
+                # close socket
+                self.imu_sock.close()
+                # create new imu socket
+                self.imu_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.imu_sock.settimeout(2.0)
+                rospy.loginfo("IMU Socket timed out.  Attempting to reconnect.")
+                # reconnect
+                self.connect()
+            else:
+                # Publish message
+                imu_msg = self.parse_imu(data)
+                if imu_msg: self.imu_pub.publish(imu_msg)
 
             rate.sleep()
             
